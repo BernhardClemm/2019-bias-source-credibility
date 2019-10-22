@@ -1,7 +1,7 @@
 ---
 title: |
   |
-  | \vspace{1cm}\setstretch{1}An Ocean of Possible Truth: Biased Processing of News on Social Media*^[*European University Institute, Via dei Roccettini 9, 50014 San Domenico di Fiesole, Italy. Email: bernhard.clemm@eui.eu. Orcid ID: 0000-0002-6976-9745. Thanks to Paul Bauer, Björn Bremer, Diego Gambetta, Anselm Hager, Krzysztof Krakowski, Davide Morisi and Simon Munzert for valuable comments. The research was supported through mission funding from the European University Institute. This manuscript is based on a fully reproducible RMarkdown file that can be found at https://github.com/BernhardClemm/paper-ocean-of-truth-git.]\vspace{0.5cm}
+  | \vspace{1cm}\setstretch{1}An Ocean of Possible Truth: Biased Processing of News on Social Media*^[*European University Institute, Via dei Roccettini 9, 50014 San Domenico di Fiesole, Italy. Email: bernhard.clemm@eui.eu. Orcid ID: 0000-0002-6976-9745. Thanks to Paul Bauer, Björn Bremer, Diego Gambetta, Anselm Hager, Krzysztof Krakowski, Davide Morisi and Simon Munzert for valuable comments. The research was supported through mission funding from the European University Institute. This manuscript is based on a fully reproducible RMarkdown file that can be found at https://github.com/BernhardClemm/paper-ocean-of-truth-git]\vspace{0.5cm}
   |
 author: |
   | Bernhard Clemm von Hohenberg (EUI)

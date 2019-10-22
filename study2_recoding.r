@@ -82,9 +82,10 @@ data_2 %<>% rename(share_report_5_prompt_whatsapp.shonly_mob = QID792_4)
 
 ### Unite respective desktop and mobile columns
 
-data_2 <- data_2 %>% gather(Var, Val, -ResponseId, na.rm = FALSE) %>%
+data_2$id <- rownames(data_2)
+data_2 <- data_2 %>% gather(Var, Val, -id, na.rm = FALSE) %>%
   separate(Var, into = c("Var1", "Var2"), sep = "\\.") %>%
-  group_by(ResponseId, Var1) %>% 
+  group_by(id, Var1) %>% 
   summarise(Val = paste(Val[!(is.na(Val)|Val=="")], collapse="_")) %>%
   spread(Var1, Val)
 

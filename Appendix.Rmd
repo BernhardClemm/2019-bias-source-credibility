@@ -6,7 +6,7 @@ title: |
   |
   |
 author: |
-  | Bernhard Clemm von Hohenberg^[European University Institute, Via dei Roccettini 9, 50014 San Domenico die Fiesole, Italy. Email: bernhard.clemm@eui.eu. Orcid ID: 0000-0002-6976-9745. This appendix is based on a fully reproducible RMarkdown file that contains code to replicate all graphs and analyses. This describes the raw data. Some of the data were post-weighted for analysis in related published commentary.]
+  | Bernhard Clemm von Hohenberg^[European University Institute, Via dei Roccettini 9, 50014 San Domenico die Fiesole, Italy. Email: bernhard.clemm@eui.eu. Orcid ID: 0000-0002-6976-9745. This appendix is based on a fully reproducible RMarkdown file that contains code to replicate all graphs and analyses. This describes the raw data. Some of the data were post-weighted for analysis in related published commentary. This manuscript is based on a fully reproducible RMarkdown file that can be found at https://github.com/BernhardClemm/paper-ocean-of-truth-git.]
 date: |
   |       
   |
@@ -76,7 +76,7 @@ Sys.setlocale("LC_ALL", "en_US.UTF-8")
 
 #### Import ####
 
-data_1 <- read.csv(file = "Data September 2017 Final Raw.csv", 
+data_1 <- read.csv(file = "Data September 2017 Final Raw Anonymous.csv", 
                  stringsAsFactors = FALSE, 
                  encoding = "UTF-8")
 
@@ -106,7 +106,7 @@ source("study1_recoding.r")
 
 #### Import ####
 
-data_2 <- read.csv(file = "Data March 2019 Final Raw.csv", 
+data_2 <- read.csv(file = "Data March 2019 Final Raw Anonymous.csv", 
                   stringsAsFactors = FALSE, 
                   encoding = "UTF-8")
 
