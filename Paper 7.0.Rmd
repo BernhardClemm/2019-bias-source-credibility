@@ -1,0 +1,1218 @@
+---
+title: |
+  |
+  | \vspace{1cm}\setstretch{1}An Ocean of Possible Truth: Biased Processing of News on Social Media*^[*European University Institute, Via dei Roccettini 9, 50014 San Domenico di Fiesole, Italy. Email: bernhard.clemm@eui.eu. Orcid ID: 0000-0002-6976-9745. Thanks to Paul Bauer, Björn Bremer, Diego Gambetta, Anselm Hager, Krzysztof Krakowski, Davide Morisi and Simon Munzert for valuable comments. The research was supported through mission funding from the European University Institute. This manuscript is based on a fully reproducible RMarkdown file that can be found at ]\vspace{0.5cm}
+  |
+author: |
+  | Bernhard Clemm von Hohenberg (EUI)
+date: |
+  |       
+  |
+  | `r gsub("^0", "", format(Sys.time(), "%d %B, %Y"))`
+  |
+abstract: \noindent\setstretch{1}The digital information environment offers a wide variety of factual claims from a diverse spectrum of sources. Citizens face the constant challenge whether to believe and disseminate the claims they encounter. What factors drive belief and sharing of factual information? While previous scholarship on political knowledge and information processing has explored oft-discussed factual questions, this paper focusses on questions as they daily arise in the news. Predictions are derived from the theory of motivated reasoning, which suggests that people process factual information in terms of congruence with their attitudes, and the source credibility literature, which implies that the prominence of sources should influence information processing. Expectations were tested in two original survey experiments in Germany. Study 1 (n = 418) explored the effects of attitudinal congruence and source prominence on belief, by exposing subjects to constructed news reports (on the welfare state, domestic security, migration and European integration) presented as Facebook posts. Three out of four topics show a strong impact of attitudinal congruence, with no source effect. For the fourth topic, the reverse is the case, which suggests that people either resort to their attitudes or take a source cue, depending on the topic. Study 2 (n = 1964) analyzed tendencies to share a news report (on migration) via email, Facebook, Whatsapp and Twitter. Again, attitudinal congruence plays a greater role than the type of source, although dynamics are more complex for sharing on Twitter. \par \vspace{.3cm} \textbf{Keywords:} Factual beliefs, motivated reasoning, source credibility, social media \vspace{.8cm}
+colorlinks: true
+output:
+  bookdown::pdf_document2:
+    includes:
+      in_header: header.tex
+    toc: no
+    keep_tex: true
+header-includes: 
+geometry: "top=0.8in,left=0.85in,right=0.85in, footskip=0.40in"
+fontsize: [12pt, letterpaper]
+linestretch: 2
+documentclass: article
+bibliography: [References.bib]
+csl: american-political-science-association.csl
+link-citations: true
+always_allow_html: yes
+
+---
+
+```{r setup, include = FALSE}
+
+# Knitr options
+knitr::opts_chunk$set(cache = FALSE,
+                      echo = FALSE,
+                      concordance = TRUE,
+                      fig.pos = 'H',
+                      warning = FALSE,
+                      message = FALSE)
+# Packages
+library(dplyr)
+library(tidyr)
+library(magrittr)
+library(psych)
+library(ggplot2)
+library(stargazer)
+library(ggpubr)
+library(margins)
+library(modmarg)
+library(kableExtra)
+library(stringr)
+
+# Set locale
+Sys.setlocale("LC_ALL", "en_US.UTF-8")
+
+```
+
+```{r data_1, include = FALSE}
+
+#### Import ####
+
+data_1 <- read.csv(file = "Data September 2017 Final Raw Anonymous.csv", 
+                 stringsAsFactors = FALSE, 
+                 encoding = "UTF-8")
+
+#### Filter observations ####
+
+## Who completed, was screened out of, speeded or aborted survey?
+
+table(data_1$Finished) # 418 completes, 107 non-completes
+summary(data_1$Q_TotalDuration[data_1$Finished == "True"]) # Median of completes is 654 seconds
+
+# Of the 107 non completes: 
+table(data_1$Progress) # 29 screened out (stopped at 3%, which is screening stage) 
+table(data_1$Finished[data_1$Q_TotalDuration < 654/3 & data_1$Progress > 3]) # 16 speeders
+table(data_1$Finished[data_1$Q_TotalDuration > 654/3 & data_1$Progress > 3]) # 62 aborted survey
+
+## Keep only completes
+
+data_1 %<>% filter(Finished == "True")
+
+#### Recode & clean ####
+
+source("study1_recoding.r") 
+
+```
+
+```{r data_2, include = FALSE}
+
+#### Import ####
+
+data_2 <- read.csv(file = "Data March 2019 Final Raw Anonymous.csv", 
+                  stringsAsFactors = FALSE, 
+                  encoding = "UTF-8")
+
+#### Filter observations ####
+
+### Exclude one observation (aborted survey) without Respondi ID, not deleted after pre-launch
+data_2 <- data_2[!is.na(data_2$tic), ]
+
+### Completion
+
+## Who completed, was screened out of, speeded or aborted survey?
+
+data_2 %<>% rename(completion = Q_TerminateFlag)
+
+table(data_2$completion, exclude = NULL)
+table(data_2$completion[data_2$completion == "Screened" & data_2$age < 18]) 
+table(data_2$debrief_confirm, exclude = NULL)
+
+  # 3168 observations of which
+    # 1063 tagged, of which
+      # 308 speeder (312 "Screened" minus 4 under 18 years)
+      # 4 under 18 years
+      # 751 because of full quota
+    # 2105 not screened out
+  # 2288 observations that confirmed debrief, of which
+    # 308 speeder
+    # 1980 valid completes, which equals sample target size
+  # Difference between 2105 and 1980 are subjects that aborted survey 
+
+## Recode Completion variable
+
+data_2 %<>% mutate(completion = 
+                     case_when(completion == "Screened" & QID731_1 < 18 ~ "Under 18",
+                               completion == "Screened" ~ "Speeder",
+                               is.na(completion) & is.na(QID213) ~ "Aborted",
+                               is.na(completion) & !is.na(QID213)  ~ "Complete",
+                               TRUE ~ as.character(completion)))
+
+## Drop all non-completes
+
+data_2 %<>% filter(completion == "Complete")
+
+#### Recode & clean ####
+
+source("study2_recoding.r", echo = TRUE)
+
+#### Drop those without at least one account of email/FB/Twitter/Whatsapp
+
+data_2 %<>% filter(account == 1)
+
+```
+
+```{r functions}
+
+source("functions.r", echo = FALSE)
+
+```
+
+\clearpage
+
+In today's information environment, citizens face an "ocean of possible truth" about political questions [@Lippmann1922: p. 215]: The Internet provides a wide variety of "alternative" facts provided by a diverse spectrum of news sources. The everyday challenge of citizens, who across the globe increasingly get their political news from social media like Facebook [@Pew2018], is thus to decide what to believe and, given their increasing relevance as intermediaries as well as receivers of news, what information to spread. 
+
+While some have argued that citizens do not need to know all the facts to make reasoned political choices [@Popkin1991; @LupiaMcCubbins1998], a potential threat to democracy is that citizens may become misinformed easily and stick to misbeliefs with confidence [@Kuklinskietal2000; @NyhanReifler2010; @AnspachCarlson2018]. Research about how people process factual information mainly relates to oft-discussed, even if definitively answered, questions such as the causes of climate change [@McCrightDunlap2012; @Kahanetal2012], the size of immigrant populations [@Hopkinsetal2019] or the religion of former US president Obama [@Laymanetal2014].
+
+We know less about how people process the factual information that is the essence of everyday news. News often revolves around factual questions not on people's minds before they are reported: Most people have not thought, for example, about whether a certain politician engaged in an act of corruption before it becomes the news. What is more, a part of "fake news" is based on inventing such questions: Until it was a false claim, citizens did not ask themselves whether the pope endorsed Donald Trump [cf. @AllcottGentzkow2017]. How people process, i.e. what makes them believe and disseminate, information about such "new" factual questions, especially on Facebook, is the focus of this paper.
+
+A first obvious expectation is that people, as motivated reasoners, evaluate and spread factual information depending on its congruence with their political attitudes [@TaberLodge2006; @JeritBarabas2012; @Kahan2016b; @Reedyetal2014]. But insofar as citizens are at least some of the time out for the truth, they might pay attention to *who* said something. A broad literature suggests that source credibility perceptions matter [@HovlandWeiss1951; @MillerKrosnick2000; @Swireetal2017]. In this paper I examine a little studied credibility aspect, namely how much credit people give to completely unknown compared to known sources. Further, I contribute to the existing literature by considering the interaction between congruence and source credibility, expecting less motivated reasoning in the presence of a prominent source. 
+
+In two experimental studies run in Germany, I exposed subjects to news reports exactly as they would encounter them online, especially on Facebook. Manipulating the the factual claim of a news report (left-wing congruent vs. right-wing congruent) and the type of the source (known vs. unknown) allowed me to causally identify source and congruence effects. In Study 1 (n = `r nrow(data_1)`), subjects read reports on four salient political topics (welfare state, migration, domestic security and European integration) and were asked whether they believed them to be true. Study 2 (n = `r nrow(data_2)`), focussed on a single topic (migration) and asked subjects whether they would share a report.  
+
+Results imply that people are led by their attitudes more than the source. In Study 1, belief is affected by attitudinal congruence but not the source for three out of four topics. For the fourth topic, the reverse is true, which suggests that factual processing differs across topics. In Study 2, again, it is mostly congruence that drives sharing tendencies, with the exception of more complex patterns on Twitter. Section \@ref(sec:factual-questions) derives the theoretical expectations. Design and results of the first study are presented in Section \@ref(sec:study-1), of the second study in Section \@ref(sec:study-2). Section \@ref(sec:conclusion) discusses implications.
+
+# The processing of factual claims in the news {#sec:factual-questions}
+
+I define a question of fact or a factual question as a question for which a true answer can be learned (if often only imperfectly). A factual belief or perception is the belief someone holds about the answer to such a question. A factual claim, or factual information, claims to provide the answer to that question. It can be true or false. In this sense, "factual" refers to the falsifiable nature of the information and is not equivalent to "true" [cf. @BullockLenz2019; @MariettaBarker2019].
+
+The last decades have provided ample empirical evidence about citizens' factual beliefs about political issues as well as their processing of factual claims. Most of this evidence evolves around "old" factual questions, by which I mean questions that have already been part of the political discourse, and related to which some facts have been publicly available. They are often scientific questions such as the causes of climate change [@McCrightDunlap2012; @Kahanetal2012; @Guilbeaultetal2018], the risks of genetically modified food [@Gaskelletal2004; @Flynnetal2017] or the (disproven) link between vaccines and autism [@BodeVraga2015; @HochschildEinstein2015]. Other old questions are more descriptive: For example, whether there were weapons of mass descruction in Iraq [@Gainesetal2007; @NyhanReifler2010], whether Barack Obama is a Muslim [@Laymanetal2014] or whether the economy is doing better or worse at a given point in time [@Bartels2002; @Bullocketal2015; @SchaffnerRocher2017; @Jones2019; @Bisgaard2019].
+
+Yet only a minor part of the daily information flow relates to such well-known questions. News are "new" because they often deal with questions that were not on people's minds before, or about which there is no information available yet. The question whether a politician engaged in corruption, for example, is not on the table until an investigation is launched; the question of this month's unemployment level might be on the table, but it can only be plausibly reported on once official statistics are public. Indeed, the business of fake news producers partly depends on creating new factual questions: Few people pondered whether the pope endorsed the then presidential candidate Donald Trump before it became a false report [cf. @Silverman2016]. I contend that we should take great interest in such "new" factual questions, and that we cannot assume that people deal with them in the same way as with "old" questions.^[One reason is that people are unlikely to have any factual belief about a new question. They might have factual beliefs about related, old, possibly more general, questions. It could be that they simply accept information about new questions, but manage to interpret it in a way that does not conflict with these existing beliefs [cf. @Gainesetal2007; @Bisgaard2019]. Note that the distinction between "new" and "old" questions is not strict. For example, the question of the unemployment level of a given month is new when the statistics are published, but "grows old" after that.]
+
+The reason why new factual questions have less often been subject of analysis might be, firstly, the challenge to study them in a media setting: Factual claims typically come in the form of news reports. Experimental studies examining the processing of information on new factual questions often struggle to provide this realistic context [e.g. @JeritBarabas2012; @Swireetal2017; @AllcottGentzkow2017; but @Kuruetal2017; @Pennycooketal2018]. A second difficulty is that if news reports used in studies are real, they might be known to study participants. If we ask them to judge the truth of information they have already encountered, it is unclear what we can learn about people's news processing behavior in the real world. Researchers must therefore either carefully construct information, or chose real information that is little known. 
+
+My interest in new factual questions shifts the focus from people's pre-existing perceptions to how they process incoming information. The most obvious aspect is whether they *believe* some encountered information to be true. As the contemporary media ecology allows citizens to be broadcasters as well as receivers, a further question is whether they *share* the information. One might suspect that the two outcomes are related: To believe something is a good reason to share. Yet, people seem to share content even though they do not always believe it [@ChadwickVaccari2019]. Juxtaposing the two outcomes can therefore yiel new insights, especially given potential misinformation dynamics through sharing [@Zolloetal2015; @DelVicarioetal2016].
+
+## Attitudinal congruence {#sec:congruence}
+
+Students of political behavior have long observed that "sometimes conciously, more often without knowing it, we are impressed by those facts which fit our philosophy" [@Lippmann1922, p. 55]. Factual information can be said to "fit our philosophy" or to be congruent insofar as it supports the attitudes or ideology we adhere to. This attitudinal congruence can affect several dynamics: People selectively *expose* themselves to congruent information [@Lazarsfeldetal1944; @Stroud2008] and tend to *hold* congruent factual beliefs [@Conoveretal1987; @Bartels2002; @JeritBarabas2012].  
+
+More importantly for the present research, several theories also explain why people *evaluate* information depending on its congruence: According to the motivated reasoning paradigm, incoming information automatically triggers attitudes to related concepts, which motivates people to defend their prior beliefs and attitudes [@Kunda1990; @LodgeTaber2000]. The related group view of political beliefs holds that rather than being concerned about the truth, people seek to share the "sacred" factual beliefs of their community [@Kahan2016a; @BavelPereira2018; @SlomanRabb2019]. Even the rational-choice paradigm of Bayesian updating concedes that people can be held back substantially by their prior beliefs when assimilating new information [@GerberGreen1999; @Hill2017]. 
+
+The tendency to apply different standards to congruent and incongruent information (referred to as assimilation or (dis)confirmation bias) shows in people's biased tendency to engage thoroughly with complicated information, e.g. scientific study design [@Lordetal1979; @HoustonFazio1989; @Kahanetal2017b; @WashburnSkitka2017], but also simply whether they *believe* a factual claim or find it convincing [@MacCounPaletz2009; @Crawfordetal2013; @Sunsteinetal2017]. Most of these studies operationalize information as scientific findings, and few test congruence effects for news reports [but @JeritBarabas2012; @Kuruetal2017].  
+
+To isolate the effect of information congruence, most studies have followed the experimental paradigm of @Lordetal1979: They expose subjects to either of two opposing claims regarding a factual question (e.g. whether the death penalty has a deterrent effect) so that the two treatment items are identical except for their congruence with the individual's attitudes [cf. @Dittoetal2018a]. This allows to causally identify the effects of congruence at different attitude positions. Let us call two news reports containing opposite factual claims about the same factual question a left-wing congruent and a right-wing congruent report. I predict that *people with left-wing attitudes believe a left-wing congruent report more than a right-wing news report and vice versa for people with a right-wing attitudes (H1a).*^[The hypothesis thus describes the marginal effects of the news report treatment at the two attitude extremes. Given the symmetry of interactions [@Berryetal2012], there must also be marginal effects of individual attitude at both content treatments. I am agnostic about this marginal effect, in particular because the causal identification of this predispositional variable is not given. However, it is probable that the marginal effect of attitudes (higher meaning more right-wing) is positive for a right-wing report and negative for a left-wing report.]
+
+In one view, belief of information as expressed in survey experiments is mere "partisan cheerleading" [@Bullocketal2015; @Prioretal2015].^[Critics of this view argue that in real-life, citizens are not incentivized to hold correct beliefs or make correct judgements. Rather, they "act in ways that signify [their] identity-defining group commitments" and thus their "real" beliefs are whatever they express [@Kahan2016b: p. 7].] This objection is less important once we consider how congruence might affect the *dissemination* of factual information, for people might spread information that champions their side irrespective of whether they believe it. However, existing evidence implies that political bloggers tend to embed hyperlinks that align with their political side [@AdamicGlance2005], that Twitter users are more likely to retweet messages from likeminded users [@Barberaetal2015; @Conoveretal2011], and are more likely to retweet fact checks favorable to their preferred party [@ShinThorson2017]. Analogously to the effect of congruence on belief, I therefore expect that *people with left-wing attitudes tend to share a left-wing congruent report more than a right-wing news report and vice versa for people with right-wing attitudes (H1b).*
+
+## Source credibility {#sec:source}
+
+When people decide whether to believe or disseminate a new factual claim, it is unlikely that they will be guided by their pre-existing attitudes alone. Provided they want to find out the facts *some* of the time, that is, are motivated by "accuracy goals", they should ask: who said it? In the digital information environment, the "who" can refer both to a sender, e.g. a friend sharing a report on Facebook, and to the *source* that authored the report, typically a news media outlet, which is the focus of the present study. A longstanding literature suggests that the perception of a source's credibility matters, especially for persuasion [@HovlandWeiss1951; @Berloetal1969; @PettyCacioppo1986], and, less widely examined, for the believability of information [@FlanaginMetzger2000; @Greer2003; @VragaBode2017]. 
+
+What source characteristics determine these subjective judgements is less clear [cf. @Kiousis2001; @KohringMatthes2007]. Early studies emphasized trustworthiness and expertise as dimensions of credibility [@Berloetal1969; @Hovlandetal1969]. Experimental manipulation of expertise in particular has been shown to affect credibility perceptions [@Sternthaletal1978; @Pettyetal1981]. More recent studies in the online context simply compare what they interpret as "high-credibility", e.g. the New York Times, and "low-credibility" sources, e.g. Buzzfeed [@Greer2003; @Knoblochetal2015; @MediaInsight2017a; @Shenetal2018; @Pennycooketal2018; @KnightGallup2018]. Thus, it remains often unclear what source characteristic driving credibility is actually manipulated, which might explain mixed results.
+
+A little discussed aspect that might contribute to credibility is how well the source is known (its *prominence*). Provided people have some motivation to learn the truth and know that truth finding requires resources, they can more easily assume such truth-finding capacity of a source they know. This dimension seems particularly relevant in the digital sphere, where the number of sources is endless and new sources can emerge in no time. News consumers cannot know all of them. Through dissemination on social media, they might be confronted with many unknown sources. Yet we do not have a lot of evidence how prominence affects belief and sharing. Only some of the aforementioned studies implicitely compare known and unknown sources, e.g. by exposing subjects to a "personal blog" [@Greer2003].
+
+Of course, prominence should only increase credibility and thus belief if news consumers also assume the source to generally tell the truth. A source can be known for not reporting the truth. Note that the present study is concerned with the comparison between *reputable* known sources and unknown sources. This contrast is interesting because of the ease with which fraudulent sources can appear reputable and professional, especially since social media provides them a standardized visual framework. As in the previous section, I suspect that prominence will have similar effects on sharing as on belief, whether through belief or other reasons such as reputational concerns. I thus predict that *people's belief (H2a), and their tendency to share (H2b) is higher for news reports by known than by unknown sources.*
+  
+Prominence will not increase a source's credibility for all people alike. News consumers might be distrusting of the well-known media per se. Skepticism of the mainstream media is widespread [@TsfatiCappella2005], and has increased in some countries over the last decades [@Gallup2016]. Media skeptics think that journalists are not fair and objective in their reporting, fail to tell the whole and tend to forgo accuracy for personal benefit [@Tsfati2010; @KohringMatthes2007]. In their eyes, an unknown source may tell the truth as well as, or even better than, a known reputable source. Supporting this idea, @Carretal2014 find that source effects are conditional on individual media trust. This leads me to expect that *the effect of source prominence on belief (H3a) and tendency to share (H3b) is positive for those with high media trust and higher than for those with low media trust.*^[I am agnostic about whether the source effect is simply less positive, or negative for low trusters. Regarding the symmetry of the interaction, I again do not predict anything about the marginal effects of media trust for both source treatments. However, it is probable that at least in the known source treatment, the effect of media trust is positive.]
+  
+## Attitudinal congruence and source credibility {#sec:congruence-source}
+
+The tendency to process factual information in a biased way and the effect of known sources might pull people in opposing directions: What to do when news are attitudinally congruent but come from an unknown source? When news are incongruent but come from a known source? It could be that depending on the context, people are either motivated by "accuracy" or "directional" goals, the former leading them to pay attention to the source, the latter to follow their worldview [@Kunda1990; @Bolsenetal2014]. Another possibility, tested in this study, is that irrespective of the situation, attitudinal congruence and source prominence interact. The source credibility literature suggests that attitudinal congruence matters more for low-credibility than high-credibility sources [@OKeefe2016: p. 143]: The former raise scepticism, stimulate activation of one's own thoughts, and thus enhance motivated reasoning about facts. Highly credible sources inhibit such stimulation. 
+
+The empirical evidence on this hypothesized interaction is inconclusive. Those studies focussing on attitudinal outcomes have found the difference between congruent and incongruent arguments to differ between sources [@Aronsonetal1963; @HarmonConey1982; @Chebatetal1988]. However, political science studies, mostly interested in the ideological closeness of sources rather than their prominence, yield mixed findings: Information processing is found to be less biased for ideologically close sources by some [@Kahanetal2010], but not others [@Kuruetal2017; @ChiaChang2017]. Others even find that because incongruent messages by ideologically distant sources cannot be dismissed as "cheap talk", there is a negative effect of congruence for "unlikely sources" [@BaumGroeling2009; @Berinsky2009].
+
+The contrast between known and unknown sources has not been studied. Provided that people are at least partly motivated by accuracy goals, a known source should mitigate their tendency to follow directional goals. I therefore posit a triple interaction between the source, the news report and individual attitudes which predicts that *the difference in belief (H4a) and sharing tendency (H4b) between congruent and incongruent facts is smaller for known than for unknown sources.*^[Concerning the symmetry of effects, I am agnostic both about the marginal effects of attitudes for different treatments, and of the source effect. This means that the difference of reading from a known minus an unknown source could be (1) positive for incongruent, and negative of congruent reports; (2) zero for incongruent, positive for congruent reports; or (3) negative for incongruent, zero for congruent reports.]
+
+# Study 1: Believing news reports {#sec:study-1}
+
+## Research design
+
+To test predictions about belief of factual news reports, I conducted an online survey experiment in Germany between September 18th and 24th 2017, the week preceding the German parliamentary elections. The news topics chosen---the welfare state, domestic security, migration, and European integration---repeatedly turned up as top concerns of German voters at the time [@ARDInfratest2017a; @ARDInfratest2017b; @Forschungsgruppe2017]. 
+
+**Sample**: A non-probability sample of German residents was recruited by Qualtrics through third-party panel providers. According to Qualtrics, panel providers send email invitations to potential participants with information about the expected survey length and the compensation available, but without any details about the contents. The compensation depends on the survey duration, a respondent's specific profile and acquisition difficulty. Panel providers are obliged to regularly verify respondent identity and check response quality. 
+
+To enhance generalizability, I set three sampling quotas (age, gender and education) in reference to the German electorate as described in the 2011 census. Towards the end of the study, quotas were relaxed to ensure a sufficient sample size, but the sample is approximately representative. See the sample distribution on gender (51.4% female), age (M = 46.4, SD = 18.1), education and state of residence compared with the population distribution in the online Appendix. Participants with completion times lower than a third of the median (16 participants) as well as those who did not complete the survey (62 participants) were excluded from the sample. The final sample contained `r nrow(data_1)` subjects. 
+
+**Experimental procedure and treatments:** Upon giving consent, subjects indicated their gender, age and educational attainment and were screened in or out accordingly. Next, their media trust and attitudes regarding the four study topics were measured. At the experimental stage, they had to indicate, subsequently for each topic, whether they believed a news report to be true. Independently for each of the four topics, subjects were randomly assigned to one of four treatments in a between-subjects $2\times2$ design. Balance tests show that the distributions of standard demographics do not differ significantly across treatments (see Appendix). After the experimental stage, subjects responded to some more demographic questions. Finally, subjects were debriefed. The full questionnaire can be found at https://eui.eu.qualtrics.com/jfe/form/SV\_5oKobqFh61MUU2F.
+
+The experimental stimuli were four Facebook posts each with a news report that presented results of a journalistic investigation. To maximize experimental realism, I built the displayed post to look identical of a typical media Facebook post, including a headline, a teaser and a photo, with the name, logo and URL of the outlet. The only visual difference to a real post was that hyperlinks were deactivated to discourage participants from leaving the questionnaire, and that no reactions or comments below the post were given. Figure \@ref(fig:study1-stimulus) shows an example. For two of the four topics (migration, and the European Union), the posts were followed by a couple of paragraphs presented as taken from the original news report. Subjects were re-randomized into treatments at each of the four topics. 
+
+```{r study1-stimulus, echo = FALSE, fig.cap = "Example of the experimental Facebook posts", fig.align='center', out.width = '50%', fig.pos = 'h'}
+
+knitr::include_graphics("Fb post.png")
+
+```
+
+The *content treatment* manipulation related to the report's factual claim. Each topic evolved around a factual question of political relevance. To capture the particular dynamics of people processing *news* reports, I chose questions that had been little discussed in public. I could therefore assume that subjects did not have any detailed knowledge about the issues, and would approach the information like news in real life. The factual questions did not have a true answer (yet) because of limited data availability; only some reporting indicated what a plausible answer might be. This allowed me, by departing from a benchmark of plausibility, to construct two factual claims congruent for either attitudinal side. Subjects were randomly exposed to either the left-wing congruent or the right-wing congruent report.^[Although topics cannot always be neatly arranged according to the left-right spectrum, I will for the sake of simplicity refer to those in favour of a strong welfare state, against law-and-order politics, in favour of migration and in favour of European integration as left-wing and vice versa.] 
+
+To exemplify this procedure, consider the migration topic. The specific question addressed by the report was how well refugees in Germany placed into apprenticeships suceeded compared to natives. At the time of the study, there was only data for one German state and a short time frame available. The issue also had seen little public attention. One constructed news report claimed that completion rates between refugees and natives were similar, which can be interpreted as congruent with migration-friendly attitudes. The other report claimed that refugees had lower completion rates than natives, congruent for those with a migration-critical outlook. See the Appendix for the wording of all reports. 
+
+The *source treatment* manipulation related to the report's source as it appeared in the Facebook post by name and logo. The known source was operationalized by "Tagesschau", the news show of the biggest German public broadcaster. It generally scores highest as the most well-known news brand in Germany and was among the top in a pre-test I ran on 30 outlets (see Appendix). The unknown source was operationalized as "Neueste Nachrichten", loosely translatable as "Current News". While it was one of the several actors that have been disseminating false information in 2017, its neutral name suggests professionality and was therefore ideal for comparison with a reputable known source. The fact that it had hardly any Facebook followers justifies the assumption that it was unknown to most people.^[The web site address is https://www.neueste-nachrichten.eu, the Facebook page can be found at https://de-de.facebook.com/NeuesteNachrichten.eu. The page started claiming to produce "satire", possibly to shield itself from criticism.]
+
+**Attention check**: Subjects might take advantage of the unsupervised situation of an online experiment to verify factual information [cf. @JensenThomsen2014]. A cheating-control report was thus included after the first topic: It reported a simple and true factual claim that could be quickly read up online. Those subjects who expressed maximum belief in the truth of this report but spent more than fifteen seconds on the post were classified as cheating suspects (n = `r nrow(data_1[data_1$truestory_belief == 10 & data_1$truestory_belief_submit > 15, ])`) for later robustness checks.
+
+**Measurement**: The *dependent variable* was measured on a 11-point scale with the question: "How much do you believe in the veracity of the information presented?". Despite the attempt to construct news reports to be equally plausible, average belief of opposite claims significantly differed for two topics (welfare state and European integration). Since the outcome of interest is not the plausibility of constructed claims, but the interaction with attitudes, I standardized belief per news report. The recoded variable thus represents the deviation from the average belief of that report.
+
+For each topic, subjects' *attitudes* were elicited by asking their agreement with four statements on an 11-point scale. The items had a clear substantive relation to the factual claims of the respective news report. To reduce the four-item batteries to one dimension respectively, I applied factor analysis. For three topics, the items loaded highly (> 0.6) on a principal factor (domestic security: Sum of squared loadings of `r round(topic2_factor_analysis$Vaccounted[1,1], 2)`, proportion of variance explained `r round(topic2_factor_analysis$Vaccounted[2,1], 2)`; migration: Sum of squared loadings of `r round(topic3_factor_analysis$Vaccounted[1,], 2)`, proportion of variance explained `r round(topic3_factor_analysis$Vaccounted[2,], 2)`; European integration: Sum of squared loadings of `r round(topic4_factor_analysis$Vaccounted[1,], 2)`, proportion of variance explained `r round(topic4_factor_analysis$Vaccounted[2,], 2)`). Factor scores were calculated using the default regression method of R's "fa" command. For the welfare state topic, items did not load strongly on one factor. Results are presented using subject's agreement to the statement that ``nowadays, work hard pays off''. Robustness checks for alternative items will be discussed. The single item was standardized to ensure comparability with factor scores. All attitude-related variables were coded so that higher values represented a position typically seen as right-wing. Item wordings and distributions of single items and factors can be found in the Appendix.
+
+To elicit individual *media trust*, I asked subjects to rate a list of mainstream media outlets with only moderate partisan leanings (ZDF Heute, Deutschlandfunk, Süddeutsche Zeitung, Welt N24, N-TV), anwering the question: "How much do you trust that the respective source publishes true information?" (11-point scale). Media trust scores were calculated as row-wise averages. 
+
+Other variables measured included age, sex, education, income, citizenship status, religious affiliation, residence, political orientation, political interest, political knowledge, their intentions to turn out and vote, the importance of different media channels, how often they consumed news, and whether they had a Facebook account and how much they used it. 
+
+**Ethics statement:** Informed consent was obtained from all individual participants at the beginning of the study. As subjects were unaware of treatment assignment and were told that the news reports were real and had been collected online in the preceding months, I took several steps to mitigate effects of this deception. First, I debriefed subjects in detail at the end of the survey, providing them with accurate data about the three manipulated news reports and clarifying the questionable character of the unknown source. Second, I encouraged them to provide feedback and any concerns via email. Responses were exclusively positive. The experimental design was approved by the Ethics Committee of the European University Institute under file number #C-SPS-Res-2017-18. 
+
+## Results
+
+Figure \@ref(fig:fig-h1a) visually explores hypothesis H1a, which predicts that subject will have a higher belief in attitudinally congruent than attitudinally incongruent reports. For each topic, a panel shows two linear fits of belief on attitudes (the left end of the x-axis corresponds to the most left-wing positions) corresponding to the two content treatments. The solid lines show the treatment exposing subjects to a left-wing congruent news report; the dashed line represents exposure to a right-wing congruent report. The graphs lend support to H1a, most clearly for the migration topic: Average belief for those with strong pro-migration attitudes are higher for the pro-migration report than the anti-migration report, and vice versa for migration sceptics. The same tendency can be seen for welfare state and European integration topics, but not for domestic security.
+
+```{r study1-h1a-plots, fig.cap = "Effects of attitudinal congruence on truth judgements\\label{fig:fig-h1a}", fig.height = 5, out.extra = '', fig.pos= "H"}
+
+#### Topic 1 ####
+
+study1_congruence_topic1 <- congruence_plot(data_1, data_1$topic1_attitude2_stand, 
+                                             data_1$topic1_belief_stand, data_1$topic1_content, 
+                                             glm, "Belief", "Welfare state attitude",  
+                                             "Content treatment", "Left-wing congruent news report",
+                                             "Right-wing congruent news report", x_min = -1.5, x_max = 2)
+
+#### Topic 2 ####
+
+study1_congruence_topic2 <- congruence_plot(data_1, data_1$topic2_attitudes_factor, 
+                                             data_1$topic2_belief_stand, data_1$topic2_content, 
+                                             glm, "", "Domestic security attitude (factor)",  
+                                             "Content treatment", "Left-wing congruent news report",
+                                             "Right-wing congruent news report", x_min = -2, x_max = 1.5)
+
+#### Topic 3 ####
+
+study1_congruence_topic3 <- congruence_plot(data_1, data_1$topic3_attitudes_factor, 
+                                             data_1$topic3_belief_stand, data_1$topic3_content, 
+                                             glm, "Belief", "Migration attitude (factor)",  
+                                             "Content treatment", "Left-wing congruent news report",
+                                             "Right-wing congruent news report", x_min = -2, x_max = 1.5)
+
+#### Topic 4 ####
+
+study1_congruence_topic4 <- congruence_plot(data_1, data_1$topic4_attitudes_factor, 
+                                             data_1$topic4_belief_stand, data_1$topic4_content, 
+                                             glm, "", "European integration attitude (factor)",  
+                                             "Content treatment", "Left-wing congruent news report",
+                                             "Right-wing congruent news report")
+
+#### Combine 4 plots ####
+
+ggarrange(study1_congruence_topic1, 
+         study1_congruence_topic2,
+         study1_congruence_topic3, 
+         study1_congruence_topic4,
+         labels = c("Welfare", "Security", 
+                    "Migration", "Europe"),
+         font.label = list(size = 12),
+         ncol = 2, nrow = 2, 
+         common.legend = TRUE,
+         legend = "bottom")
+
+
+```
+
+Figure \@ref(fig:figure-h2a) explores H2a, which posits that the average belief will be higher for subjects exposed to a known source. For each topic, the graph shows the average belief of those subjects exposed to the unknown (circles), and those exposed to the known source (triangles). Differences appear small, the most pronounced one emerging for reports on domestic security.
+
+To statistically test the hypotheses, I ran OLS models for each topic separately regressing belief on an interaction between news report dummy and attitude (H1a), a source treatment dummy (H2a), an interaction between source treatment and media trust (H3a), and a triple interaction between news report, attitudes and source treatment (H4a). Table \@ref(tab:tab-h1a-h4a) shows the results.
+
+```{r study1-h2a-plots, results = "hide", fig.cap = "Effects of source prominence on belief\\label{fig:figure-h2a}", fig.height = 3, out.extra = '', fig.pos= "htbp"}
+
+#### Summarize treatment group statistics ####
+
+study1_source <- data_1 %>%
+  select(topic1_source, topic2_source, 
+         topic3_source, topic4_source,
+         topic1_belief_stand, topic2_belief_stand, 
+         topic3_belief_stand, topic4_belief_stand) %>%
+  group_by(topic1_source, add = FALSE) %>% 
+  mutate(n_topic1 = n()) %>%
+  group_by(topic2_source, add = FALSE) %>% 
+  mutate(n_topic2 = n()) %>%
+  group_by(topic3_source, add = FALSE) %>% 
+  mutate(n_topic3 = n()) %>%
+  group_by(topic4_source, add = FALSE) %>% 
+  mutate(n_topic4 = n()) %>%
+  gather(key = "variable", value = "value",
+         topic1_belief_stand:topic4_belief_stand) %>%
+  mutate(n = case_when(variable == "topic1_belief_stand" ~ n_topic1,
+                       variable == "topic2_belief_stand" ~ n_topic2,
+                       variable == "topic3_belief_stand" ~ n_topic3,
+                       variable == "topic4_belief_stand" ~ n_topic4)) %>%
+  mutate(treatment = case_when(variable == "topic1_belief_stand" ~ topic1_source,
+                               variable == "topic2_belief_stand" ~ topic2_source,
+                               variable == "topic3_belief_stand" ~ topic3_source,
+                               variable == "topic4_belief_stand" ~ topic4_source)) %>%
+  group_by(variable, treatment) %>%
+  summarize(n = mean(n),
+            mean = mean(value, na.rm = TRUE),
+            var = var(value, na.rm = TRUE),
+            sd = sd(value, na.rm = TRUE)) %>%
+  mutate(se = sqrt(var/n),
+         ci_error = qt(0.975, df = n-1) * sqrt(var/n),
+         conf_low = mean - ci_error,
+         conf_high = mean + ci_error,
+         Treatment = ifelse(treatment == 1, 
+                        "Known (Tagesschau)", 
+                        "Unknown (Neueste Nachrichten)")) %>%
+  ungroup() %>%
+  mutate(variable = case_when(variable == "topic1_belief_stand" ~ "Welfare",
+                              variable == "topic2_belief_stand" ~ "Security",
+                              variable == "topic3_belief_stand" ~ "Migration",
+                              variable == "topic4_belief_stand" ~ "Europe")) %>%
+  mutate(variable = factor(variable, 
+                           ordered = TRUE,
+                           levels = c("Welfare",
+                                      "Security",
+                                      "Migration",
+                                      "Europe"))) %>%
+  mutate(Treatment = factor(Treatment, 
+                           ordered = TRUE,
+                           levels = c("Unknown (Neueste Nachrichten)",
+                                      "Known (Tagesschau)")))
+
+#### Plot treatment means and standard errors ####
+
+source_plot(study1_source, "Belief", c(-2, -1, 0, 1, 2), -2.5, 2.5)
+
+```
+
+```{r study1-fullmodels}
+
+# Content treatment: 0 is left-wing congruent content, 1 is right-wing congruent content
+# Attitude: low is left-wing, high is right-wing
+
+study1 <- list()
+
+#### Topic 1 ####
+
+### Main models: Attitude 2
+
+study1$topic1_h1a <- glm(topic1_belief_stand ~ 
+                    topic1_content*topic1_attitude2_stand, data = data_1)
+
+study1$topic1_h2a <- glm(topic1_belief_stand ~ 
+                  topic1_source, data = data_1)
+
+study1$topic1_h3a <- glm(topic1_belief_stand ~ 
+                  topic1_source*trustsource_mainstream, data = data_1)
+
+study1$topic1_h4a <- glm(topic1_belief_stand ~ 
+                  topic1_content*topic1_attitude2_stand*topic1_source, data = data_1)
+
+#### Topic 2 ####
+
+study1$topic2_h1a <- glm(topic2_belief_stand ~ 
+                    topic2_content*topic2_attitudes_factor, data = data_1)
+
+study1$topic2_h2a <- glm(topic2_belief_stand ~ 
+                  topic2_source, data = data_1)
+
+study1$topic2_h3a <- glm(topic2_belief_stand ~ 
+                  topic2_source*trustsource_mainstream, data = data_1)
+
+study1$topic2_h4a <- glm(topic2_belief_stand ~ 
+                  topic2_content*topic2_attitudes_factor*topic2_source, data = data_1)
+
+#### Topic 3 ####
+
+study1$topic3_h1a <- glm(topic3_belief_stand ~ 
+                  topic3_content*topic3_attitudes_factor, data = data_1)
+
+study1$topic3_h2a <- glm(topic3_belief_stand ~ 
+                  topic3_source, data = data_1)
+
+study1$topic3_h3a <- glm(topic3_belief_stand ~ 
+                  topic3_source*trustsource_mainstream, data = data_1)
+
+study1$topic3_h4a <- glm(topic3_belief_stand ~ 
+                  topic3_content*topic3_attitudes_factor*topic3_source, data = data_1)
+
+#### Topic 4 ####
+
+study1$topic4_h1a <- glm(topic4_belief_stand ~ 
+                  topic4_content*topic4_attitudes_factor, data = data_1)
+
+study1$topic4_h2a <- glm(topic4_belief_stand ~ 
+                  topic4_source, data = data_1)
+
+study1$topic4_h3a <- glm(topic4_belief_stand ~ 
+                  topic4_source*trustsource_mainstream, data = data_1)
+
+study1$topic4_h4a <- glm(topic4_belief_stand ~ 
+                  topic4_content*topic4_attitudes_factor*topic4_source, data = data_1)
+
+#### Rename coefficients for table and make cells bold ###
+
+models_h1a <- paste0("topic", 1:4, "_h1a")
+for(i in models_h1a) {
+    names(study1[[i]]$coefficients) <- c("Constant",
+                                             "Report (0 = left-wing)",
+                                             "Attitude",
+                                             "Report * Attitude")
+}
+
+models_h2a <- paste0("topic", 1:4, "_h2a")
+for(i in models_h2a) {
+  names(study1[[i]]$coefficients) <- c("Constant",
+                                       "Source (0 = unknown)")
+}
+
+models_h3a <- paste0("topic", 1:4, "_h3a")
+for(i in models_h3a) {
+  names(study1[[i]]$coefficients) <- c("Constant",
+                                       "Source (0 = unknown)",
+                                       "Trust",
+                                       "Source * Trust")
+}
+
+models_h4a <- paste0("topic", 1:4, "_h4a")
+for(i in models_h4a) {
+  names(study1[[i]]$coefficients) <- c("Constant",
+                                       "Report (0 = left-wing)",
+                                       "Attitude",
+                                       "Source (0 = unknown)",
+                                       "Report * Attitude",
+                                       "Report * Source",
+                                       "Attitude * Source",
+                                       "Report * Attitude * Source")
+}
+
+```
+
+```{r study1-h1a-margins}
+
+#### Topic 1 ####
+
+### Define extreme values for plotting
+
+topic1_attitude_05 <- data_1 %>%
+  filter(!is.na(topic1_attitude2_stand)) %>%
+  summarize(quants = quantile(topic1_attitude2_stand, probs = 0.05))
+topic1_attitude_05 <- as.vector(topic1_attitude_05[[1]])
+
+topic1_attitude_95 <- data_1 %>% 
+  filter(!is.na(topic1_attitude2_stand)) %>%
+  summarize(quants = quantile(topic1_attitude2_stand, probs = 0.95))
+topic1_attitude_95 <- as.vector(topic1_attitude_95[[1]])
+
+### Predict margins
+
+topic1_h1_predict <- marg(study1$topic1_h1a, 
+                       var_interest = "topic1_content", 
+                       at = list("topic1_attitude2_stand" = 
+                                   c(topic1_attitude_05, 
+                                     -0.5, 0, 0.5, 1, 1.5,
+                                     topic1_attitude_95)),
+                                 type = "effects")
+
+### Data frame for graph
+
+topic1_h1_delta <- data.frame(at = NA, delta = NA, se = NA)
+
+for (i in 1:length(topic1_h1_predict)) {
+  topic1_h1_delta[i, "at"] <- names(topic1_h1_predict[i])
+  topic1_h1_delta[i, "delta"] <- topic1_h1_predict[[i]][["Margin"]][2]
+  topic1_h1_delta[i, "se"] <- topic1_h1_predict[[i]][["Standard.Error"]][2]
+}
+
+topic1_h1_delta %<>%
+  mutate(at = gsub("topic1_attitude2_stand = ", "", at)) %>%
+  mutate(at = as.numeric(at)) %>%
+  mutate(conf_low = delta - se) %>%
+  mutate(conf_high = delta + se)
+
+#### Topic 2 #### 
+
+### Define extreme values for plotting
+
+topic2_attitude_05 <- data_1 %>% 
+  filter(!is.na(topic2_attitudes_factor)) %>%
+  summarize(quants = quantile(topic2_attitudes_factor, probs = 0.05))
+topic2_attitude_05 <- as.vector(topic2_attitude_05[[1]])
+
+topic2_attitude_95 <- data_1 %>% 
+  filter(!is.na(topic2_attitudes_factor)) %>%
+  summarize(quants = quantile(topic2_attitudes_factor, probs = 0.95))
+topic2_attitude_95 <- as.vector(topic2_attitude_95[[1]])
+
+### Predict margins
+
+topic2_h1_predict <- marg(study1$topic2_h1a, 
+                       var_interest = "topic2_content", 
+                       at = list("topic2_attitudes_factor" = 
+                                   c(topic2_attitude_05, 
+                                     -1, -0.5, 0, 0.5,
+                                     topic2_attitude_95)), 
+                       type = "effects")
+
+### Data frame for graph
+
+topic2_h1_delta <- data.frame(at = NA, delta = NA, se = NA)
+
+for (i in 1:length(topic2_h1_predict)) {
+  topic2_h1_delta[i, "at"] <- names(topic2_h1_predict[i])
+  topic2_h1_delta[i, "delta"] <- topic2_h1_predict[[i]][["Margin"]][2]
+  topic2_h1_delta[i, "se"] <- topic2_h1_predict[[i]][["Standard.Error"]][2]
+}
+
+topic2_h1_delta %<>%
+  mutate(at = gsub("topic2_attitudes_factor = ", "", at)) %>%
+  mutate(at = as.numeric(at)) %>%
+  mutate(conf_low = delta - se) %>%
+  mutate(conf_high = delta + se)
+
+#### Topic 3 ####
+
+### Define extreme values for plotting
+
+topic3_attitude_05 <- data_1 %>% 
+  filter(!is.na(topic3_attitudes_factor)) %>%
+  summarize(quants = quantile(topic3_attitudes_factor, probs = 0.05))
+topic3_attitude_05 <- as.vector(topic3_attitude_05[[1]])
+
+topic3_attitude_95 <- data_1 %>% 
+  filter(!is.na(topic3_attitudes_factor)) %>%
+  summarize(quants = quantile(topic3_attitudes_factor, probs = 0.95))
+topic3_attitude_95 <- as.vector(topic3_attitude_95[[1]])
+
+### Predict margins
+
+topic3_h1_predict <- marg(study1$topic3_h1a, 
+                       var_interest = "topic3_content", 
+                       at = list("topic3_attitudes_factor" = 
+                                   c(topic3_attitude_05, 
+                                     -1, -0.5, 0, 0.5, 1,
+                                     topic3_attitude_95)), 
+                       type = "effects")
+
+### Data frame for graph
+
+topic3_h1_delta <- data.frame(at = NA, delta = NA, se = NA)
+
+for (i in 1:length(topic3_h1_predict)) {
+  topic3_h1_delta[i, "at"] <- names(topic3_h1_predict[i])
+  topic3_h1_delta[i, "delta"] <- topic3_h1_predict[[i]][["Margin"]][2]
+  topic3_h1_delta[i, "se"] <- topic3_h1_predict[[i]][["Standard.Error"]][2]
+}
+
+topic3_h1_delta %<>%
+  mutate(at = gsub("topic3_attitudes_factor = ", "", at)) %>%
+  mutate(at = as.numeric(at)) %>%
+  mutate(conf_low = delta - se) %>%
+  mutate(conf_high = delta + se)
+
+#### Topic 4 ####
+
+### Define extreme values for plotting
+
+topic4_attitude_05 <- data_1 %>% 
+  filter(!is.na(topic4_attitudes_factor)) %>%
+  summarize(quants = quantile(topic4_attitudes_factor, probs = 0.05))
+topic4_attitude_05 <- as.vector(topic4_attitude_05[[1]])
+
+topic4_attitude_95 <- data_1 %>% 
+  filter(!is.na(topic4_attitudes_factor)) %>%
+  summarize(quants = quantile(topic4_attitudes_factor, probs = 0.95))
+topic4_attitude_95 <- as.vector(topic4_attitude_95[[1]])
+
+### Predict margins
+
+topic4_h1_predict <- marg(study1$topic4_h1a, 
+                       var_interest = "topic4_content", 
+                       at = list("topic4_attitudes_factor" = 
+                                   c(topic4_attitude_05, 
+                                     -1, -0.5, 0, 0.5, 1,
+                                     topic4_attitude_95)), 
+                       type = "effects")
+
+### Data frame for graph
+
+topic4_h1_delta <- data.frame(at = NA, delta = NA, se = NA)
+
+for (i in 1:length(topic4_h1_predict)) {
+  topic4_h1_delta[i, "at"] <- names(topic4_h1_predict[i])
+  topic4_h1_delta[i, "delta"] <- topic4_h1_predict[[i]][["Margin"]][2]
+  topic4_h1_delta[i, "se"] <- topic4_h1_predict[[i]][["Standard.Error"]][2]
+}
+
+topic4_h1_delta %<>%
+  mutate(at = gsub("topic4_attitudes_factor = ", "", at)) %>%
+  mutate(at = as.numeric(at)) %>%
+  mutate(conf_low = delta - se) %>%
+  mutate(conf_high = delta + se)
+
+
+```
+
+```{r study1-h2a-margins}
+
+#### Topic 2 ####
+
+topic2_h2_predict <- marg(study1$topic2_h2a, 
+                       var_interest = "topic2_source",
+                       type = "effects")
+
+```
+
+```{r study1-h3a-margins}
+
+#### Topic 4 ####
+
+topic4_h3_predict <- marg(study1$topic4_h3a, 
+                       var_interest = "topic4_source",
+                       at = list("trustsource_mainstream" = c(0, 10)), 
+                       type = "effects")
+
+```
+
+For H1a, the models in Table \@ref(tab:tab-h1a-h4a) confirm the visual impression from Figure \@ref(fig:fig-h1a). For three topics, the interaction between news report and attitude (third row in columns labelled H1a) is significant at least at the 95%-level. Only for reports on domestic security, it is not. To understand the substantive effect size of the modelled interaction, consider Figure \@ref(fig:figure-h1a-margins). The y-axis depicts the predicted difference in belief between the two news reports. A negative value indicates that the belief of the left-wing report was higher than the right-wing report, a positive value the opposite. These marginal effects are plotted for a range of attitudinal positions between the 5% and the 95% quantile (x-axis).
+
+\blandscape 
+
+```{r study1-fullmodels-table, results = "asis", paged.print = FALSE}
+
+#### Table for all topics ####
+
+dep_vars = c("Welfare State", "Domestic Security","Migration", "European integration")
+
+full_models_table(study1, "tab:tab-h1a-h4a", "Belief of news reports", dep_vars)
+
+```
+
+\elandscape 
+
+The plots illustrate the extent to which congruence matters. Consider the most evident case of migration: At the 5%-percentile (a pro-migration position), the predicted edge of pro-migration information over anti-migration information on belief is `r round(abs(topic3_h1_predict[[1]][["Margin"]][2]), 2)` standardized units (SE of difference = `r format(round(topic3_h1_predict[[1]][["Standard.Error"]][2], 2), nsmall = 2)`, p = `r format(round(topic3_h1_predict[[1]][["P.Value"]][2], 2), nsmall = 2)`). At the 95%-percentile (an anti-migration position), the predicted margin is `r format(round(abs(topic3_h1_predict[[7]][["Margin"]][2]), 2), nsmall = 2)` standardized units (SE of difference = `r format(round(topic3_h1_predict[[7]][["Standard.Error"]][2], 2), nsmall = 2)`, p = `r format(round(topic3_h1_predict[[7]][["P.Value"]][2], 2), nsmall = 2)`). Effect sizes for the migration topics are large compared to previous studies with a similar design and outcome; effect sizes for welfare state and European integration are comparable to previous studies. For example, @Kuruetal2017 find that disagreement with a report on a national poll changes belief by just over half a standard unit.
+
+```{r study1-h1a-margins-plot, results = "hide", fig.cap = "Marginal congruence effects on belief\\label{fig:figure-h1a-margins}", fig.height = 4.5, out.extra = '', fig.pos= "H"}
+
+#### Topic 1
+
+## Attitude dimension as new data frame
+
+topic1_attitude_df = data.frame(attitude = data_1$topic1_attitude2_stand, y = 0)
+
+## Plot
+
+topic1_h1a_marginsplot <- h1a_marginsplot(topic1_h1_delta, x_lab = "Welfare state attitude", 
+                                          y_lab = "Predicted diff.", x_lim_low = -1.5, x_lim_high = 2,
+                                          rug_data = topic1_attitude_df)
+
+#### Topic 2
+
+## Attitude dimension as new data frame
+
+topic2_attitude_df = data.frame(attitude = data_1$topic2_attitudes_factor, y = 0)
+
+## Plot
+
+topic2_h1a_marginsplot <- h1a_marginsplot(topic2_h1_delta, x_lab = "Domestic security attitude (factor)", 
+                                          x_lim_low = -2, x_lim_high = 1.2, rug_data = topic2_attitude_df)
+
+#### Topic 3
+
+## Attitude dimension as new data frame
+
+topic3_attitude_df = data.frame(attitude = data_1$topic3_attitudes_factor, y = 0)
+
+## Plot
+
+topic3_h1a_marginsplot <- h1a_marginsplot(topic3_h1_delta, x_lab = "Migration attitude (factor)", 
+                                          y_lab = "Predicted diff.", x_lim_low = -1.5, x_lim_high = 1.5, 
+                                          rug_data = topic3_attitude_df)
+
+#### Topic 4
+
+## Attitude dimension as new data frame
+
+topic4_attitude_df = data.frame(attitude = data_1$topic4_attitudes_factor, y = 0)
+
+## Plot
+
+topic4_h1a_marginsplot <- h1a_marginsplot(topic4_h1_delta, x_lab = "European integration attitude  (factor)",
+                                          x_lim_low = -2, x_lim_high = 1.5, rug_data = topic4_attitude_df)
+
+#### Combine plots
+
+ggarrange(topic1_h1a_marginsplot, 
+         topic2_h1a_marginsplot,
+         topic3_h1a_marginsplot, 
+         topic4_h1a_marginsplot,
+         labels = c("Welfare", "Security", 
+                    "Migration", "Europe"),
+         font.label = list(size = 12),
+         ncol = 2, nrow = 2, 
+         common.legend = TRUE,
+         legend = "bottom")
+
+```
+
+Regarding H2a, as suggested by Figure \@ref(fig:figure-h2a), the source only has a significant effect for the domestic security topic, which happens to be the only topic for which attitudinal congruence does not matter. On average, a professional source increases the perceived accuracy of the information read by `r round(abs(topic2_h2_predict[[1]][["Margin"]][2]), 2)` standardized units (SE of difference = `r round(topic2_h2_predict[[1]][["Standard.Error"]][2], 2)`, p = `r round(topic2_h2_predict[[1]][["P.Value"]][2], 2)`). This is comparable to source effects in similar studies [e.g. @KnightGallup2018]. 
+
+As for H3a, the interaction of source and individual media trust only reaches a level of conventional statistical significance for news reports on European integration, even if the coefficients for all other topics show the expected direction. Marginal effects analysis reveal that for someone with a media trust value of 10 (on a scale from 0 to 10), the professional source leads to an increase of `r format(round(abs(topic4_h3_predict[[2]][["Margin"]][2]), 2), nsmall = 2)` standardized units in truth judgements (SE of difference = `r format(round(topic4_h3_predict[[2]][["Standard.Error"]][2], 2), nsmall = 2)`, p = `r format(round(topic4_h3_predict[[2]][["P.Value"]][2], 2), nsmall = 2)`). The effect is the reverse at for someone with a minimal level of media trust; however, this difference of `r format(round(abs(topic4_h3_predict[[1]][["Margin"]][2]), 2), nsmall = 2)` is only marginally significant (SE of difference = `r format(round(topic4_h3_predict[[1]][["Standard.Error"]][2], 2), nsmall = 2)`, p = `r format(round(topic4_h3_predict[[1]][["P.Value"]][2], 2), nsmall = 2)`). Finally, H4a finds no support for any of the topics.
+
+The results are largely robust to alternative specifications, as can be seen in the Appendix. When re-running analyses for the welfare state topic with different attitude items, the congruence interaction remains significant for all but one item. When excluding those without a Facebook account the congruence interaction becomes statistically insignificant for the report on European integration, which might be due to the reduced power.
+
+## Discussion
+
+For three out of for topics, the effect of attitudinal congruence on belief worked as expected. In contrast, whether the source was well-known had no effect on belief. For the fourth topic, the reverse was the case: The source mattered, but not attitudinal congruence. This suggests that, rather than an interacting, congruence and source effects are complementary (although this conclusion would have to be tested on a larger sample of topics): when people make a difference between congruent and incongruent information, they do not make a difference between sources, and vice versa.
+
+What is it about topics that makes the two effects to show differently? The motivated reasoning literature suggests that *salience* matters. For salient issues, citizens are more likely to be aware of their own positions and motivated to defend them [@Flynnetal2017]. Migration was doubtlessly the most salient topic in the two years leading up to the 2017 election in Germany, while the debate around European politics had lost some significance, and the welfare state did not catch on as a salient topic in the electoral campaign [e.g. @Fausetal2018]. This would explain that attitudinal congruence mattered most for migration, and somewhat less for the latter two topics. On the other hand, it is difficult to argue that domestic security was not a salient issue after the 2016 terrorist attack in the center of Berlin. 
+
+A related explanation could be the topic's role in political identities. It is argued that pre-existing attitudes matter for information processing insofar they are central to someone's political identity [@Kahan2016a; @NyhanReifler2016]. To account for this aspect, some studies separately measure attitude positions and attitude strength [@TaberLodge2006; @Taberetal2009]. The present study did not do this, but since the two measures tend to be correlated [@Taberetal2009, fn. 5], topics with stronger attitudes should also show a more polarized distribution. Histograms of the attitude item distributions (see Appendix) do not support this idea. The question of when people are motivated reasoners and when they rely on sources thus requires further research.
+
+The limited relevance of the source in this study was unexpected. However, some caveats are due: First, perhaps the source manipulation had no effect because it was not evident enough. Social media like Facebook or Twitter flatten out differences between news sources by providing a standardized visual framework. Yet, the presentation of news in this study corresponds to the one on Facebook. If subjects did not notice the source in this study, this might be an issue in the real world, too. Second, people might back-check the name of unknown sources in the real world, which they were asked not to in this study. After verification, news consumers might process news reports differently. However, we also know that much news consumption happens superficially, with people taking in headlines without verification [@Kruikemeieretal2018; @Gabielkovetal2016], so the situation studies carries some real-world relevance. Third, the content manipulation in this study was modest: opposite reports were both plausible. Perhaps sources play a greater role when people are exposed to wildly implausible factual claims, which fake news often are [cf. @Silverman2016]. 
+
+# Study 2: Sharing of news reports {#sec:study-2}
+
+## Research design
+
+To test predictions regarding people's sharing behaviour of news reports, I ran a second experiment between 14th and 28th March 2019. The study evolved around the topic of migration, at the time still a salient issue in the political debate. The design, part of a larger study discussed in @BauerClemm2019, was similar to the one of Study 1. One difference was that half of the sample was randomly assigned to read news reports not dressed as Facebook posts, but as articles on websites. As my theoretical expectations apply to both situations, I neglect this treatment dimension and analyse all participants together. Possible differences are discussed in the results section.
+
+**Sample**: A non-probability sample of German residents was recruited through the survey company Respondi, which maintains its own panel with members enlisted through online and offline campaigns. Respondi regularly verifies respondent identities and response qualities. For recruitment to a specific survey, participants are contacted via email informing them about title, length and compensation, without any details on the content. 
+
+Respondents were screened into the survey according to three quotas (gender, age and state of residence). As can be seen in the online Appendix, the sample is representative of the German population with regard to gender and state of residence, but only approximates representativity with regard to age due to a limited subject pool. Those who completed the questionnaire in less than the sample median time (308 respondents) or did not complete it (125 respondents) were excluded. Finally, since the outcome of interest was online sharing, I excluded those respondents without either an email, Facebook, Twitter or Whatsapp account. The final sample included `r nrow(data_2)` participants. 
+
+**Experimental procedure and treatments:** The questionnaire followed a logic similar to Study 1. After giving consent and indicating age, gender and state of residence for screening purposes, respondents answered questions about their media trust, attitudes on immigration, use of and sharing behaviour via email, Facebook, Twitter and Whatsapp. During the experimental stage, subjects were asked to read a news report and indicate whether they would share it through any of the above channels. This report was manipulated within a $2\times2\times2$ between-subjects design. As mentioned above, only two dimensions will be discussed in this paper. The Appendix shows that treatment groups were balanced. Finally, the questionnaire inquired some more sociodemographic variables, and debriefed subjects. The questionnaire was built responsive to mobile devices and can be accessed at https://eui.eu.qualtrics.com/jfe/form/SV_d50f8q60eado8Xb.
+
+News reports at the experimental stage were presented exactly as they would look like on Facebook or web sites by providing a screenshot of the (allegedly) original article before a couple of paragraphs. Examples can be found in the Appendix. The *content treatment* manipulation related to the report's factual claim. As in Study 1, the report, styled as an journalistic investigation, adressed a factual question that allowed constructing two opposing factual claims. Specifically, it was based on a report on crime statistics of immigrants and natives from the preceding year. Real data about this were available, but unlikely to be known to respondents specifically, and served again as a benchmark for constructing reports. Subjects were randomly assigned to either of two reports: The "pro-migration" treatment group read that crime rates of immigrants were lower than in reality; the "anti-migration" treatment group read that they were higher. See the Appendix for the wording of reports. 
+
+Depending on the *source treatment*, subjects were assigned to read the report by either of two sources. As in Study 1, I operationalized the known source as "Tagesschau", which was the source known by most subjects when asked about a range of sources at the beginning of the questionnaire. I used the made-up name of "Nachrichten 360", translatable as "News 360", to implement the unknown source. As it does not exist, the source was unknown by definition even though it seems to elicit an illusion of acquaintance, as knowledge scores in the Appendix reveal.
+
+**Manipulation and attention checks**: To bolster the plausibility of effective manipulation found in Study 1, checks were introduced. Although a source effect could materialize without the subjects being conscious of the manipulated variable, active perception of the treatment provides the more plausible causal mechanism. Subjects were therefore quizzed after the experimental stage about the source of the report they had read. A large majority of respondents (`r round(prop.table(table(data_2$source_check_correct))[2], 3)*100`%) remembered the source correctly. An effect of congruence is only plausible if people are aware of the news report content. Most subjects (`r round(prop.table(table(data_2$report_2_check_correct))[2], 3)*100`%) remembered the main claim of the report correctly. 
+
+I adopted a new strategy to detect fact verification behaviour by implementing a Java Script that tracked whether and at what points people leave the questionnaire [developed by @DiedenhofenMusch2017]. In addition, I implemented a popup asking users leaving and returning to the survey not to leave again. Only `r round(prop.table(table(data_2$report_2_focus_raw_loss, exclude = NULL))[1], 2)*100`% of subjects left the questionnaire at the experimental stage. Robustness checks regarding manipulation and attention checks are discussed below.
+
+**Measurement**: To measure *sharing tendency* across different platforms, subjects were asked: "Would you share the message from [source] that you just read via...", followed by a list of yes/no-options for Email, Facebook, Twitter and Whatsapp. Only those services the respondent had indicated using were included. Therefore, samples varied across outcomes (Email: n = `r length(which(!is.na(data_2$share_report_2_email)))`; Facebook: n = `r length(which(!is.na(data_2$share_report_2_fb)))`; Twitter: n = `r length(which(!is.na(data_2$share_report_2_twitter)))`; Whatsapp: n = `r length(which(!is.na(data_2$share_report_2_whatsapp)))`).^[In contrast to Study 1, the outcome was not standardized per content treatment: Even if by construction there was a difference in plausibility between the opposite reports, treatment differences in sharing would be an interesting result in itself.] 
+
+*Attitudes* on migration were measured with a five-item battery (wording in the Appendix). All items loaded highly on a principal factor (sum of squared loadings of `r round(immigrant_factor_analysis$Vaccounted[1,], digits = 2)`, proportion of variance explained `r round(immigrant_factor_analysis$Vaccounted[2,], digits = 2)`). Factor scores were calculated with the regression method of R's "fa" command. High values on the ensuing variable represent a migration-critical position. 
+
+Mainstream *media trust* was operationalized as the average of trust towards five mainstream news sources (ZDF Heute, Tagesschau, Süddeutsche Zeitung, Frankfurter Allgemeine, Spiegel), measured with the question: "Even if you don't know all of them: Do you think the following media can be trusted? (Not at all, rather not, partly, rather, completely)". Other variables measured included age, sex, state of residence, education, income, voting intention, political knowledge, knowledge of news sources and frequency of sharing. 
+
+**Ethics statement:** As in Study 1, subjects were asked for their informed consent. However, since they were told the news reports were real and published recently, and were unaware of treatment assignment, I sought to minimize the impact of deception. First, subjects were debriefed in detail at the end of the survey. Specifically, it was clarified that the made-up source did not exist, and accurate data about the three manipulated news reports was provided. Second, there was an open-ended feedback box after the debriefing. The feedback revealed that the survey experience was overwhelmingly positive. Third, had they agreed, respondents were emailed more substantive information about the topic few weeks after the study. The design was approved by the Ethics Committee of the European University Institute under file number #CG8-1-2019. 
+
+## Results
+
+```{r study2-fullmodels, results = "asis", paged.print = FALSE}
+
+#### Logit regression ####
+# Content treatment: 0 is pro-migration content, 1 is anti-migration content
+# Attitude: low is pro-migration, high is anti-migration
+
+study2 <- list()
+
+#### Email ####
+
+study2$email_h1b <- glm(share_report_2_email ~ 
+                    treatment_content*immigrant_attitudes_factor, 
+                data = data_2, family = "binomial")
+study2$email_h2b <- glm(share_report_2_email ~ 
+                  treatment_source,
+                data = data_2, family = "binomial")
+study2$email_h3b <- glm(share_report_2_email ~ 
+                  treatment_source*trustsource_mainstream,
+                data = data_2, family = "binomial")
+study2$email_h4b <- glm(share_report_2_email ~ 
+                  treatment_content*immigrant_attitudes_factor*treatment_source,
+                data = data_2, family = "binomial")
+
+#### FB ####
+
+study2$fb_h1b <- glm(share_report_2_fb ~ 
+                  treatment_content*immigrant_attitudes_factor, 
+                data = data_2, family = "binomial")
+study2$fb_h2b <- glm(share_report_2_fb ~ 
+                  treatment_source,
+                data = data_2, family = "binomial")
+study2$fb_h3b <- glm(share_report_2_fb ~ 
+                  treatment_source*trustsource_mainstream,
+                data = data_2, family = "binomial")
+study2$fb_h4b <- glm(share_report_2_fb ~ 
+                  treatment_content*immigrant_attitudes_factor*treatment_source,
+                data = data_2, family = "binomial")
+
+#### Twitter ####
+
+study2$twitter_h1b <- glm(share_report_2_twitter ~ 
+                  treatment_content*immigrant_attitudes_factor, 
+                data = data_2, family = "binomial")
+study2$twitter_h2b <- glm(share_report_2_twitter ~ 
+                  treatment_source,
+                data = data_2, family = "binomial")
+study2$twitter_h3b <- glm(share_report_2_twitter ~ 
+                  treatment_source*trustsource_mainstream,
+                data = data_2, family = "binomial")
+study2$twitter_h4b <- glm(share_report_2_twitter ~ 
+                  treatment_content*immigrant_attitudes_factor*treatment_source,
+                data = data_2, family = "binomial")
+# study2$twitter_full <- glm(share_report_2_twitter ~ 
+#                   treatment_content*immigrant_attitudes_factor*treatment_source +
+#                     treatment_source*trustsource_mainstream,
+#                 data = data_2, family = "binomial")
+
+#### Whatsapp ####
+
+study2$whatsapp_h1b <- glm(share_report_2_whatsapp ~ 
+                  treatment_content*immigrant_attitudes_factor, 
+                data = data_2, family = "binomial")
+study2$whatsapp_h2b <- glm(share_report_2_whatsapp ~ 
+                  treatment_source,
+                data = data_2, family = "binomial")
+study2$whatsapp_h3b <- glm(share_report_2_whatsapp ~ 
+                  treatment_source*trustsource_mainstream,
+                data = data_2, family = "binomial")
+study2$whatsapp_h4b <- glm(share_report_2_whatsapp ~ 
+                  treatment_content*immigrant_attitudes_factor*treatment_source,
+                data = data_2, family = "binomial")
+
+#### Rename coefficients for table ####
+
+models_h1b <- c("email_h1b", "fb_h1b", "twitter_h1b", "whatsapp_h1b")
+for(i in models_h1b) {
+  names(study2[[i]]$coefficients) <- c("Constant",
+                                       "Report (0 = left-wing)",
+                                       "Attitude",
+                                       "Report * Attitude")
+}
+
+models_h2b <- c("email_h2b", "fb_h2b", "twitter_h2b", "whatsapp_h2b")
+for(i in models_h2b) {
+  names(study2[[i]]$coefficients) <- c("Constant",
+                                       "Source (0 = unknown)")
+}
+
+models_h3b <- c("email_h3b", "fb_h3b", "twitter_h3b", "whatsapp_h3b")
+for(i in models_h3b) {
+  names(study2[[i]]$coefficients) <- c("Constant",
+                                       "Source (0 = unknown)",
+                                       "Trust",
+                                       "Source * Trust")
+}
+
+models_h4b <- c("email_h4b", "fb_h4b", "twitter_h4b", "whatsapp_h4b")
+for(i in models_h4b) {
+  names(study2[[i]]$coefficients) <- c("Constant",
+                                       "Report (0 = left-wing)",
+                                       "Attitude",
+                                       "Source (0 = unknown)",
+                                       "Report * Attitude",
+                                       "Report * Source",
+                                       "Attitude * Source",
+                                       "Report * Attitude * Source")
+}
+
+```
+
+```{r study2-margins-h1b, results = "asis", paged.print = FALSE}
+
+#### Email ####
+
+immigrant_05_email <- data_2 %>% 
+  filter(!is.na(share_report_2_email)) %>%
+  summarize(quants = quantile(immigrant_attitudes_factor, probs = 0.05))
+immigrant_05_email <- as.vector(immigrant_05_email[[1]])
+
+immigrant_95_email <- data_2 %>% 
+  filter(!is.na(share_report_2_twitter)) %>%
+  summarize(quants = quantile(immigrant_attitudes_factor, probs = 0.95))
+immigrant_95_email <- as.vector(immigrant_95_email[[1]])
+
+email_margins_h1b <- 
+  marg(study2$email_h1b,
+       var_interest = "treatment_content",
+       at = list("immigrant_attitudes_factor" = c(immigrant_05_email,
+                                                  immigrant_95_email)))
+
+email_margins_diff_h1b <- 
+  marg(study2$email_h1b,
+       var_interest = "treatment_content",
+       at = list("immigrant_attitudes_factor" = c(immigrant_05_email,
+                                                  immigrant_95_email)),
+       type = "effects")
+
+```
+
+```{r study2-margins-h2b, results = "asis", paged.print = FALSE}
+
+#### Twitter ####
+
+email_margins_h2b <- 
+  marg(study2$email_h2b,
+       var_interest = "treatment_source")
+
+```
+
+```{r study2-margins-h3b, results = "asis", paged.print = FALSE}
+
+#### Twitter ####
+
+trust_05_twitter <- data_2 %>% 
+  filter(!is.na(share_report_2_twitter)) %>%
+  summarize(quants = quantile(trustsource_mainstream, probs = 0.05))
+trust_05_twitter <- as.vector(trust_05_twitter[[1]])
+
+trust_95_twitter <- data_2 %>% 
+  filter(!is.na(share_report_2_twitter)) %>%
+  summarize(quants = quantile(trustsource_mainstream, probs = 0.95))
+trust_95_twitter <- as.vector(trust_95_twitter[[1]])
+
+twitter_margins_h3b <- 
+  marg(study2$twitter_h3b,
+       var_interest = "treatment_source",
+       at = list("trustsource_mainstream" = c(trust_05_twitter,
+                                              trust_95_twitter)))
+
+twitter_margins_h3b_diff <- 
+    marg(study2$twitter_h3b,
+         var_interest = "treatment_source",
+         at = list("trustsource_mainstream" = c(trust_05_twitter,
+                                              trust_95_twitter)),
+         type = "effects")
+
+
+```
+
+```{r study2-margins-h4b, results = "asis", paged.print = FALSE}
+
+#### Twitter ####
+
+### Immigration attitude values
+
+immigrant_05_twitter <- data_2 %>% 
+  filter(!is.na(share_report_2_twitter)) %>%
+  summarize(quants = quantile(immigrant_attitudes_factor, probs = 0.05))
+immigrant_05_twitter <- as.vector(immigrant_05_twitter[[1]])
+
+immigrant_95_twitter <- data_2 %>% 
+  filter(!is.na(share_report_2_twitter)) %>%
+  summarize(quants = quantile(immigrant_attitudes_factor, probs = 0.95))
+immigrant_95_twitter <- as.vector(immigrant_95_twitter[[1]])
+
+### Predicted probabilities
+
+## Points
+
+twitter_margins_h4b_points <- 
+  marg(study2$twitter_h4b,
+       var_interest = "treatment_content",
+       at = list("immigrant_attitudes_factor" = c(immigrant_05_twitter,
+                                                  immigrant_95_twitter),
+                 "treatment_source" = c(0, 1)))
+
+## Differences for text
+
+twitter_margins_h4b_diffs <- 
+  marg(study2$twitter_h4b,
+       var_interest = "treatment_content",
+       at = list("immigrant_attitudes_factor" = c(immigrant_05_twitter,
+                                                  immigrant_95_twitter),
+                 "treatment_source" = c(0, 1)),
+       type = "effects")
+
+```
+
+Figures \@ref(fig:fig-h1b) and \@ref(fig:fig-h2b) visually explore hypotheses H1b and H2b. Generally, the tendency to share the news reports among subjects is low. Figure \@ref(fig:fig-h1b) shows, for each outcome, loess plots of sharing tendency on immigration attitudes, by content treatment. It suggests that subjects with an pro-migration outlook (left end of the scale) seem to be more willing to share a pro-migration than an anti-migration report and vice versa for migration skeptics. Figure \@ref(fig:fig-h2b) suggests small effects of source prominence on sharing tendency for Email, Facebook and Twitter. To test hypotheses H1b - H4b statistically, I ran logit models of sharing tendency on the same terms as in Study 1. Results are shown in Table \@ref(tab:tab-h1b-h4b).
+
+```{r study2-congruence-effects, fig.cap = "Effects of attitudinal congruence on sharing tendency\\label{fig:fig-h1b}", fig.height = 5, out.extra = '', fig.pos= "h"}
+
+#### Email ####
+
+study2_congruence_email <- congruence_plot(data_2, data_2$immigrant_attitudes_factor, 
+                                             data_2$share_report_2_email, data_2$treatment_content, 
+                                             loess, "Sharing tendency", "Migration attitude",  
+                                             "Content treatment", "Pro-migration news report",
+                                             "Anti-migration news report",
+                                           y_min = 0, y_max = 1, y_breaks = c(0, 0.5, 1))
+
+#### FB ####
+
+study2_congruence_fb <- congruence_plot(data_2, data_2$immigrant_attitudes_factor, 
+                                             data_2$share_report_2_fb, data_2$treatment_content, 
+                                             loess, "", "Migration attitude",  
+                                             "Content treatment", "Pro-migration news report",
+                                             "Anti-migration news report",
+                                           y_min = 0, y_max = 1, y_breaks = c(0, 0.5, 1))
+
+#### Twitter ####
+
+study2_congruence_twitter <- congruence_plot(data_2, data_2$immigrant_attitudes_factor, 
+                                             data_2$share_report_2_twitter, data_2$treatment_content, 
+                                             loess, "Sharing tendency", "Migration attitude",  
+                                             "Content treatment", "Pro-migration news report",
+                                             "Anti-migration news report",
+                                           y_min = 0, y_max = 1, y_breaks = c(0, 0.5, 1))
+
+#### Whatsapp ####
+
+study2_congruence_whatsapp <- congruence_plot(data_2, data_2$immigrant_attitudes_factor, 
+                                             data_2$share_report_2_whatsapp, data_2$treatment_content, 
+                                             loess, "", "Migration attitude",  
+                                             "Content treatment", "Pro-migration news report",
+                                             "Anti-migration news report",
+                                           y_min = 0, y_max = 1, y_breaks = c(0, 0.5, 1))
+#### Combine plots
+
+ggarrange(study2_congruence_email,
+          study2_congruence_fb,
+          study2_congruence_twitter,
+          study2_congruence_whatsapp,
+          labels = c("Email", "Facebook", "Twitter", "Whatsapp"),
+          font.label = list(size = 12),
+          ncol = 2, nrow = 2, common.legend = TRUE, legend = "bottom")
+
+
+```
+
+H1b is supported for all ways of sharing. The positive sign of the interaction term in connection with the negative sign of the attitude term indicate that the log odds of sharing decrease with a more anti-migration position for the pro-migration report, and that they increase for the anti-migration report. To illustrate effect sizes, consider predicted probabilitites for sharing via email: At the 5% quantile of the immigration attitude scale (a pro-migration position), the predicted sharing probability of a pro-migration report is `r round(email_margins_h1b[[1]][["Margin"]][1], 3)`, of an anti-migration report `r round(email_margins_h1b[[1]][["Margin"]][2], 3)` (SE of the difference = `r round(email_margins_diff_h1b[[1]][["Standard.Error"]][2], 3)`, p = `r round(email_margins_diff_h1b[[1]][["P.Value"]][2], 3)`). At the 95% quantile, the respective probabilities are `r round(email_margins_h1b[[2]][["Margin"]][1], 3)` and `r round(email_margins_h1b[[2]][["Margin"]][2], 3)` (SE of the difference = `r round(email_margins_diff_h1b[[2]][["Standard.Error"]][2], 3)`, p = `r round(email_margins_diff_h1b[[2]][["P.Value"]][2], 3)`). Marginal effect plots for all outcomes can be found in the Appendix. 
+
+Like in Study 1, H2b receives little support. Only for email, the sharing probability is significantly higher for a professional source, but the substantive effect size is small compared to the effect of attitudinal congruence (`r format(round(email_margins_h2b[[1]][["Margin"]][1], 3), nsmall = 3)` versus `r format(round(email_margins_h2b[[1]][["Margin"]][2], 3), nsmall = 3)`). 
+
+```{r study2-source-effects, fig.cap = "Effects of source prominence on sharing propensity\\label{fig:fig-h2b}", fig.height = 3, out.extra = '', fig.pos= "h"}
+
+study2_source <- data_2 %>%
+  group_by(treatment_source) %>%
+  select(share_report_2_email,
+         share_report_2_fb,
+         share_report_2_twitter,
+         share_report_2_whatsapp) %>%
+  group_by(N = n(), add = TRUE) %>%
+  gather(key = "variable", value = "value",
+         share_report_2_email:share_report_2_whatsapp) %>%
+  group_by(treatment_source, variable) %>%
+  summarize(N = mean(N),
+            mean = mean(value, na.rm = TRUE),
+            var = var(value, na.rm = TRUE),
+            sd = sd(value, na.rm = TRUE),
+            na_sum = sum(is.na(value))) %>%
+  mutate(n = N - na_sum) %>% 
+  mutate(se = sqrt(var/n),
+         ci_error = qt(0.975,df=n-1)*sd/sqrt(n),
+         conf_low = mean - ci_error,
+         conf_high = mean + ci_error,
+         Treatment = ifelse(treatment_source == 1, 
+                        "Known (Tagesschau)", 
+                        "Unknown (Nachrichten360)")) %>%
+  ungroup() %>%
+  mutate(variable = case_when(variable == "share_report_2_email" ~ "Email",
+                              variable == "share_report_2_fb" ~ "Facebook",
+                              variable == "share_report_2_twitter" ~ "Twitter",
+                              variable == "share_report_2_whatsapp" ~ "Whatsapp")) %>%
+  mutate(variable = factor(variable, 
+                           ordered = TRUE,
+                           levels = c("Email",
+                                      "Facebook",
+                                      "Whatsapp",
+                                      "Twitter"))) %>%
+  mutate(Treatment = factor(Treatment, 
+                           ordered = TRUE,
+                           levels = c("Unknown (Nachrichten360)",
+                                      "Known (Tagesschau)")))
+
+source_plot(study2_source, "Sharing tendency", c(0, 0.25, 0.5, 0.75, 1), 0, 1)
+
+```
+
+The interaction of individual media trust and source (H3b) is only supported for Twitter. For someone with a low level of mainstream media trust (5% quantile), the predicted probability of sharing is `r format(round(twitter_margins_h3b[[1]][["Margin"]][1], 3), nsmall = 3)` 
+for the known, and `r format(round(twitter_margins_h3b[[1]][["Margin"]][2], 3), nsmall = 3)` for the unknown source, but this difference is not statistically significant (SE of difference = `r round(twitter_margins_h3b_diff[[1]][["Standard.Error"]][2], 3)`, p = `r round(twitter_margins_h3b_diff[[1]][["P.Value"]][2], 3)`). For those with high media trust, the predicted difference goes the opposite way and is significant (known: predicted probability = `r format(round(twitter_margins_h3b[[2]][["Margin"]][1], 3), nsmall = 3)`, unknown: predicted probability = `r format(round(twitter_margins_h3b[[2]][["Margin"]][2], 3), nsmall = 3)`, SE of difference = `r round(twitter_margins_h3b_diff[[2]][["Standard.Error"]][2], 3)`, p = `r round(twitter_margins_h3b_diff[[2]][["P.Value"]][2], 3)`).
+
+The interaction of congruence and source (H4b) is only significant for Twitter (note that the significances relating to H3b and H4b hold in a full model containing all terms). However, predicting probabilities reveal unexpected directions: The difference subjects make between opposite reports is *larger* rather than smaller when attributed to the known as opposed to the unknown source. 
+
+\newpage       
+\blandscape    
+
+```{r study2-fullmodels-table, echo = FALSE, results = "asis", paged.print = FALSE}
+
+#### Table for all topics ####
+
+dep_vars = c("Email", "Facebook", "Twitter", "Whatsapp")
+
+full_models_table(study2, "tab:tab-h1b-h4b", "Sharing tendency of news reports", dep_vars)
+
+```
+
+\elandscape 
+
+This can be seen from Figure \@ref(fig:fig-h4b-twitter), which shows predicted probabilities for the four treatment groups at extreme attitudes. Consider very pro-migration respondents (5%-quantile): They are `r format(round(abs(twitter_margins_h4b_diffs[[3]][["Margin"]][2]), 3), nsmall = 3)` points more likely to share a congruent than an incongruent report when it comes from a known source (SE of difference = `r format(round(twitter_margins_h4b_diffs[[3]][["Standard.Error"]][2], 3), nsmall = 3)`, p = `r format(round(twitter_margins_h4b_diffs[[3]][["P.Value"]][2], 3), nsmall = 3)`). In contrast the difference is negligible for unknown sources (SE of difference = `r format(round(twitter_margins_h4b_diffs[[1]][["Standard.Error"]][2], 3), nsmall = 3)`, p = `r format(round(twitter_margins_h4b_diffs[[1]][["P.Value"]][2], 3), nsmall = 3)`). For very anti-migration respondents (95% quantile) the congruence effect for known sources (`r format(round(twitter_margins_h4b_diffs[[4]][["Margin"]][2], 3), nsmall = 3)`) is also larger than for unknown sources (`r format(round(twitter_margins_h4b_diffs[[2]][["Margin"]][2], 3), nsmall = 3)`), but only marginally significant (SE of difference = `r format(round(twitter_margins_h4b_diffs[[4]][["Standard.Error"]][2], 3), nsmall = 3)`, p = `r format(round(twitter_margins_h4b_diffs[[4]][["P.Value"]][2], 3), nsmall = 3)`). The graph further suggests that congruent reports from known sources are the exceptional case: If reports are either incongruent or originate from an unknown source, sharing tendency is very low. 
+
+```{r study2-margins-h4b-twitter-plot, fig.cap = "Source-congruence interaction for Twitter sharing\\label{fig:fig-h4b-twitter}", fig.height = 3, out.extra = '', fig.pos= "h"}
+
+#### Twitter ####
+
+## Attitude data frame for rug plot
+
+twitter_attitude_df <- data_2 %>% 
+  filter(!is.na(share_report_2_twitter)) %>%
+  select(immigrant_attitudes_factor) %>%
+  mutate(y = 0)
+
+## Point estimates
+
+twitter_margins_h4b_points_df <- data.frame(content = rep(c(0,1), 4),
+                                            attitude = rep(c(immigrant_05_twitter,
+                                                             immigrant_05_twitter,
+                                                             immigrant_95_twitter,
+                                                             immigrant_95_twitter), 2), 
+                                            source = c(0, 0, 0, 0, 1, 1, 1, 1),
+                                            share_report_2_twitter = NA, se = NA)
+
+for (i in 1:length(twitter_margins_h4b_points)) {
+  twitter_margins_h4b_points_df[i*2 - 1, "share_report_2_twitter"] <-
+    twitter_margins_h4b_points[[i]][["Margin"]][1]
+  twitter_margins_h4b_points_df[i*2 - 1, "se"] <-
+    twitter_margins_h4b_points[[i]][["Standard.Error"]][1]
+  twitter_margins_h4b_points_df[i*2, "share_report_2_twitter"] <-
+    twitter_margins_h4b_points[[i]][["Margin"]][2]
+  twitter_margins_h4b_points_df[i*2, "se"] <-
+    twitter_margins_h4b_points[[i]][["Standard.Error"]][2]
+}
+
+twitter_margins_h4b_points_df %<>% 
+  mutate(source = as.factor(source)) %>%
+  mutate(content = as.factor(content)) %>%
+  mutate(conf_low = share_report_2_twitter + se) %>%
+  mutate(conf_high = share_report_2_twitter - se)
+
+## Plot
+
+ggplot(twitter_margins_h4b_points_df, 
+       aes(x = attitude, 
+           y = share_report_2_twitter,
+           interaction(content, source), 
+           linetype = content,
+           shape = source)) +
+  geom_point() +
+  geom_path() +
+  # geom_errorbar(aes(ymin = conf_low, ymax = conf_high), width=.05, position=position_dodge(0.05)) + 
+  labs(y = " Twitter sharing tendency", 
+       x = "Immigration attitude (factor)",
+       linetype = "Content treatment",
+       shape = "Source treatment") + 
+  scale_y_continuous(breaks = c(0, 0.25, 0.5, 0.75, 1), 
+                     limits = c(0, 1)) +
+  xlim(-2.5, 2.2) +
+  theme(
+    panel.border = element_rect(colour = "#DCDCDC", fill = NA, size =1.5),
+    panel.background = element_blank(), 
+    panel.grid.major = element_line(size=.5, color = "#EEEEEE"),
+    legend.key = element_blank()) +
+  scale_linetype_discrete(labels = c("Anti-migration news report", 
+                                     "Pro-migration news report")) +
+  scale_shape_discrete(labels = c("Unknown", "Known")) + 
+  geom_rug(inherit.aes = FALSE, 
+           aes(x = immigrant_attitudes_factor, y = y),
+           data = twitter_attitude_df, 
+           sides="b", alpha = 0.1, size = 1.2, position = "jitter")
+
+```
+
+The results pertaining to sharing are robust with only few exceptions. The source effet on email sharing disappears when analyses are run only for frequent sharers, or only those with a Facebok account, which further weakens evidence for any source effects. The source-congruence interaction for Twitter sharing becomes insignificant for the subset of subjects that did not leave the questionnaire and those passing manipulation checks. See the Appendix for details on robustness checks. 
+
+## Discussion
+
+By and large, Study 2 confirmed the findings of Study 1 with a different outcome: People's tendency to share is heavily influenced by whether the information is attitudinally congruent. Whether the source is known does not seem to bother people much, although there is a weak effect for email. This holds at least for the topic studied (migration), and as Study 1 implies, we might find source effects trumping congruence effects for other topics. In contrast to Study 1, it can be excluded that the source effect was absent because people did not *notice* the source: Results persisted if those who could not name the source they had been exposed to were excluded from the analysis (see Appendix). The two other caveats discussed above---people might verify sources in real life, and content manipulations are within the range of the plausible---similarly confine results of Study 2. 
+
+The case of Twitter is more complex. Here, sharing is conditioned by individual media trust. Also, sources do not attenuate congruence effects, but in contrast, attitudinal congruence matters more for known sources. The reason is unclear. Scholars argue that on Twitter, sharing is more powerful than on other social media due to its open network structure [@Trillingetal2017; @Kwaketal2010]: Already a few shares suffice to initiate cascades. Perhaps users see an extra incentive to push their narratives, especially given the high overlap with users of the opposite ideological camp on Twitter [@Anetal2011; @Eadyetal2019], but do not want to do so at the reputational cost of sharing questionable sources. As Figure \@ref(fig:fig-h4b-twitter) shows, sharing tendency is *always* low for the unknown source, but only low for the known source when the report is incongruent.
+
+However, it could be that this pattern is not due to special way people use Twitter, but because Twitter users are special. As shown in the Appendix, Twitter users in the sample are more likely to be  male, younger and turning out to vote than non-users. I therefore re-ran the models of email, Whatsapp and Facebook sharing with the subset of Twitter users. The congruence-source interaction turns out significant for sharing via email, but not for Whatsapp and Facebook. Marginal effects analyses show the same pattern: Congruence matters more for known sources. So it seems that there is something special about Twitter users, but it does not play out across all technologies. More research will be needed to disentangle these context and population effects when it comes to sharing of factual news reports. 
+
+# Conclusion {#sec:conclusion}
+
+This paper presented evidence that when deciding whether to believe and share factual news reports, people are often not affected by whether the information comes from a known source. It seems that this is the case for topics that elicit people's tendency to believe and share what is congruent with their attitude. In other words, when people pay attention to the source, they do not follow their attitudes, and vice versa. An exception are users of Twitter, who tend to share predominantly content that is both congruent and originates from a known source. 
+
+The two original survey experiments could not answer the question what makes a topic fall in one or the other category. This seems an interesting avenue for further research. It could be that the limited source influence in the present studies was due to the selection of topics. But even then, the lack of source effects would be important since the topics chosen were highly relevant. The findings thus contribute to the acknowledgement that sources do not always matter, which the credibility literature had already elaborated for the pre-digital era [cf. @PettyCacioppo1986]. 
+
+On a normative level, if people do not distinguish between well-known news outlets and made-up sites (or if only those with high overall trust in the media make a difference, as found in one instance), this might be problematic for our information ecosystems. In what way social media contributes to this waning authority of professional truth finding is an open question. The possibility that subjects did not give credit to the source because they did not perceive it in the standardizing framework of Facebook posts could be excluded at least for people's sharing tendencies: The source did not matter also for those who were aware of the source. 
+
+Finally, the variables examined in this study do not suffice to comprehend the outcomes studied in their entirety. We know, for example, that familiarity with information [@Decheneetal2010; @Pennycooketal2018]) and the identity of the sharer on social media [@MediaInsight2017a] likely affect whether people believe and share something. The latter factor in particular seems important in the context of social media. Imagine, for example, a news report shared by a Facebook friend we regard with suspicion when it comes to political questions. It could be that a known source can in this case make up for our suspicion. Integrating the social network dimension into experiments studying the processing of factual news is challenging, as every subject has their unique social graph, but a promising direction for further research. 
+
+\clearpage
+
+# References
