@@ -1,0 +1,1637 @@
+---
+title: |
+  |
+  | \vspace{1cm}\setstretch{1}Assimilation bias and source credibility in news processing\vspace{0.5cm}
+  |
+date: |
+  |       
+  |
+  | `r gsub("^0", "", format(Sys.time(), "%d %B, %Y"))`
+  |
+abstract: \noindent\setstretch{1}In the digital information environment, citizens face the constant challenge to decide what claims to believe and what sources to trust. It is well-established that accuracy judgements are driven by pre-existing attitudes (assimilation bias). One the other hand, source credibility theory implies that credible sources will influence news belief. Can high-credibility sources moderate assimilation bias, and thus help societies converge to a common base of facts? There is little research testing this possibility, especially in today's context of online news. Expectations were tested in a survey experiment in Germany (n = 418). Subjects read news reports manipulated in content and the source attribution, on four different topics (on the welfare state, domestic security, migration and European integration). For two out of four topics, an effect of attitudinal congruence but no source effect was found. For one topic, the reverse was the case. No significant interactions between source and congruence emerged, casting doubt on the idea that sources can counter bias. Ex-post explorations of the topic-level differences using Google trends data suggest that the topic's salience affects the prevalence of assimilation bias. Machine learning methods reveal treatment heterogeneity along age and general media trust. \par \vspace{.3cm} \textbf{Keywords:} Assimilation bias, motivated reasoning, source credibility, fake news, social media \vspace{.8cm}
+colorlinks: false
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    includes:
+      in_header: header.tex
+    toc: no
+    keep_tex: true
+geometry: [top=0.85in,left=0.95in,right=0.95in, footskip=0.40in]
+fontsize: [12pt, letterpaper]
+linestretch: 1
+documentclass: article
+bibliography: [References.bib]
+csl: apa.csl
+link-citations: yes
+always_allow_html: yes
+
+---
+
+```{r setup, include = FALSE}
+
+# Knitr options
+knitr::opts_chunk$set(cache = TRUE,
+                      echo = FALSE,
+                      concordance = TRUE,
+                      fig.pos = 'H',
+                      warning = FALSE,
+                      message = FALSE)
+# Packages
+library(dplyr)
+library(tidyr)
+library(magrittr)
+library(psych)
+library(ggplot2)
+library(stargazer)
+library(ggpubr)
+library(margins)
+library(modmarg)
+library(kableExtra)
+library(stringr)
+library(gtrendsR)
+library(lubridate)
+library(gridExtra)
+library(grid)
+library(grf)
+
+# Set locale
+Sys.setlocale("LC_ALL", "en_US.UTF-8")
+
+```
+
+```{r data-import, include = FALSE}
+
+# Import
+
+data <- read.csv(file = "data/Data September 2017 Final Raw Anonymous.csv", 
+                 stringsAsFactors = FALSE, 
+                 encoding = "UTF-8")
+
+# Filter observations
+
+## Who completed, was screened out of, speeded or aborted survey?
+
+# table(data$Finished) 
+## 418 completes, 107 non-completes
+# summary(data$Q_TotalDuration[data$Finished == "True"]) 
+## Median of completes is 654 seconds
+
+# Of the 107 non completes: 
+# table(data$Progress) 
+## 29 screened out (stopped at 3%, which is screening stage) 
+# table(data$Finished[data$Q_TotalDuration < 654/3 & data$Progress > 3]) 
+## 16 speeders
+# table(data$Finished[data$Q_TotalDuration > 654/3 & data$Progress > 3]) 
+## 62 aborted survey
+
+## Keep only completes
+
+data %<>% filter(Finished == "True")
+
+#### Recode & clean ####
+
+source("code/study_recoding.r") 
+
+```
+
+```{r functions}
+
+roundr <- function(value, dgts = 3) {
+  return(format(round(value, digits = dgts), nsmall = dgts))
+}
+
+getlegend <- function(a.gplot) {
+  tmp <- ggplot_gtable(ggplot_build(a.gplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
+  }
+
+```
+
+\setstretch{2}
+\clearpage
+
+In complex societies, citizens face an "ocean of possible truth" about the facts of political life [@Lippmann1922: p. 215]. They cannot observe most events and developments themselves: Instead, they must rely on others to report them. The Internet has widened this "ocean", increasing the number of sources and the amount of content. The everyday challenge for citizens, who increasingly get their political news from social media like Facebook [@Pew2018], is thus to decide what to believe, and which sources to trust. 
+
+As research in political psychology has shown time and again, people are no neutral arbiters of truth when exposed to new information. They evaluate information---whether true or false---as more believable when it is congruent with their political attitudes or ideology, a dynamic referred to as assimilation bias [@Lordetal1979; @Kunda1990; @TaberLodge2006; @Kahan2016b; @GuayJohnston2020]. However, insofar as citizens are motivated to be accurately informed, they should take into account *who* authored something. A long-standing literature argues that the credibility of a source matters for information processing [@HovlandWeiss1951; @MillerKrosnick2000; @FlanaginMetzger2013; @Swireetal2017].
+
+Given the many-to-many structure of the Internet, one might hope that highly professional and trusted sources moderate assimilation bias, so that people converge on the truth despite their pre-existing convictions. Several theoretical approaches, e.g., the elaboration-likelihood model and cognitive response theory, predict such an interaction between source credibility and the content's congruence. Yet we know surprisingly little about whether sources do indeed have this power. Early work in psychology yields mixed findings [@Aronsonetal1963; @HarmonConey1982; @Chebatetal1988]. More recent research studying news belief does not disentangle the effect of sources and content [@PennycookRand2017b; @Diasetal2020]. To close this gap, this paper manipulates both variables in a way that sheds light on their interactive effect. 
+
+It further contributes to the literature on source credibility by examining a contrast between high-credibility and low-credibility that is especially relevant to today's digital environment. With social media, traditional news media have lost their gate-keeper status and are challenged by alternative outlets [@vanAelstetal2017; @Stroembaecketal2020]. Uniform platform design makes it easy for fraudulent sources to pose as professional outlets by creating a convincing name and visual appearance. A case in point is the infamous "Denver Guardian" that garnered millions of Facebook interactions before the 2016 election [@Berghel2017]. To understand whether high-credibility sources have any power, it is important to compare them to such fake sources.
+
+In an experimental study with a German quota sample (n = `r nrow(data)`), I ask subjects to judge the accuracy of four news reports (on the topics welfare state, immigration, domestic security and European integration) as they would be published on Facebook. Manipulating the claim of a news report to be congruent with either left-wing or with right-wing attitudes, as well as attributing it to either a high-credibility or a low-credibility source, I find that assimilation bias plays a somewhat larger role than the source. However, this seems to depend on the topic: Belief is affected by the report's congruence but not its source in two of four topics; for one topic, both congruence and source show a marginal effect; for the fourth topic, only the source matters. Most importantly, for none of the topics can a credible source can mitigate the strength of assimilation bias. As I show in ex-post exploration of Google Trends data, these topic-level differences can be explained by the salience of topics.I further contribute to our understanding of heterogeneity in information processing by employing recently developed machine learning methods. I find that congruence and source effect vary on the the pre-treatment variables age and media trust. 
+
+Section \@ref(sec:theory) derives theoretical expectations. The experimental design and measures are described in Section \@ref(sec:methods). Section \@ref(sec:results) presents and discusses the results. Section \@ref(sec:conclusion) concludes with implications.
+
+# Theory and hypotheses {#sec:theory} 
+
+## Assimilation bias {#sec:assimilation}
+
+Scholars of political psychology have long observed that "sometimes consciously, more often without knowing it, we are impressed by those facts which fit our philosophy" [@Lippmann1922, p. 55]. The tendency to believe congenial more than uncongenial information---*assimilation bias*---manifests when people evaluate the quality of scientific studies [@Lordetal1979; @HoustonFazio1989; @MacCounPaletz2009; @Kahanetal2017b; @Crawfordetal2013; @WashburnSkitka2017; @GuayJohnston2020], when judging factual statements [@Swireetal2017; @AllcottGentzkow2017], or news content [@JeritBarabas2012; @Kuruetal2017; @Pennycooketal2019b]. 
+
+According to motivated reasoning theory, assimilation bias happens when people are motivated to bolster their preexisting attitudes, or defend the "sacred beliefs" of their community [@Kunda1990; @LodgeTaber2000; @Kahan2016a; @BavelPereira2018; @SlomanRabb2019]. This directional motivation will lead them to uncritically accept attitudinally congruent information, and discount incongruent information---irrespective of its truth value.^[Note that there is a debate whether this phenomenon should be called "bias", as it can be construed in terms of rational Bayesian updating [@GerberGreen1999; @Hill2017; @Tappinetal2019]. As these two explanations are difficult to disentangle in the experimental paradigm followed here, I stick to the term bias.] 
+
+In the paradigmatic research design testing assimilation bias [@Lordetal1979], subjects are randomly assigned to either one of two opposing claims regarding a question of fact, e.g. whether the death penalty has a deterrent effect or not. Thus, the two treatment stimuli are identical except for their congruence with the individual's attitudes or ideology, which allows to identify bias at different positions of the attitude dimension. Imagine two news reports containing opposite claims about the same question of fact, i.e. a report congruent with left-wing and one congruent with right-wing attitudes. Assimilation bias predicts an interaction between the content of a news report and an individual's attitudes so that *people judge an attitudinally congruent report as more accurate than an attitudinally incongruent report (H1)*.
+
+## Source credibility {#sec:source}
+
+People do not just turn to the news to confirm what they already believe, but also because they seek accurate information [@Katzetal1973; @TsfatiCappella2003]. Given that people cannot always verify information themselves, they must rely to on heuristics in their evaluations, of which an obvious one is *who* said something [@Berloetal1969]. A longstanding literature argues that the subjective perception of a source's credibility will affect whether people are persuaded of arguments and believe information [@HovlandWeiss1951; @PettyCacioppo1986; @FlanaginMetzger2000; @VragaBode2017].^[In the digital information environment, the "who" can refer both to an intermediary sender, such as a friend posting on Facebook, or to the source that authored the report, typically a news media outlet. The focus of this study is the source as the author of some information item.]
+
+What exactly makes a source credible is less clear. The core "dimensions" of credibility have been debated for decades [@Kiousis2001; @Metzgeretal2003; @KohringMatthes2007]. The early psychology literature emphasized factors such as "expertise" and "trustworthiness" of a source [@Hovlandetal1953]. A common way to operationalize credibility in experimental research is to explicitly describe sources to point to these dimensions, for example contrasting a "local high school class" and a "Princeton professor" [@Pettyetal1981]. Somewhat differently, the political science literature mostly conceives of credibility in terms of the ideological closeness of a source [@KuklinskiHurley1994; @BaumGroeling2009]. 
+
+<!-- Recent studies in the online-news context follow a similar approach, e.g. contrasting the New York Times to a "personal blog" [e.g. @Greer2003]. -->
+
+In the reality of online news, explicit characterizations of the source, either in terms of its partisanship or in terms of its expertise, are often not available to receivers. A distinctive feature of the digital information environment is the lack of professional gate-keepers [@Metzgeretal2003; @vanAelstetal2017] and successful mimicking of legitimate actors has been observed since the early days of the Internet [@JohnsonKaye1998]. Especially on social media, there is a smaller scope for high-credibility sources to distinguish themselves from low-credibility sources: On Facebook, for example, anyone can come up with a name and logo that suggests professionalism at little cost. Thus, fraudulent actors might feign high levels of ideological neutrality through name and appearance. People may not go to great lengths to verify properties of a source (e.g., its expertise), given the tendency to avoid effortful processing of information online [@FlanaginMetzger2000; @Foggetal2001]. 
+
+A contrast especially relevant in the online environment is, therefore, between professional, generally trusted outlets and fake news sources whose partisan leaning or lack of professionalism is not immediately obvious. The latter play a prominent role in the proliferation of fake news, as the example of the infamous "Denver Guardian" shows, the name of which ostensibly played on a trusted news brand [@Berghel2017]. A recent investigation into Russian fake-site networks revealed a host of similarly inconspicuous names such as "The Capital News" [@LauferHock2020]. This is what I understand as low-credibility sources in this study. Although it could be that such low-credibility sources may be able to somewhat close the gap to high-credibility, I still expect that news receivers should give the high-credibility sources more credit: *People judge news reports by a high-credibility source as more accurate than news reports by a low-credibility source (H2)*. 
+
+## Assimilation bias and source credibility {#sec:congruence-source}
+
+The two variables discussed---attitudinal congruence and source credibility---might pull receivers of information in opposite directions. Intuitively, people might be drawn to believing a congruent news report but hesitate when it comes from a low-credibility source; and they might be in discomfort about incongruent news but feel compelled to accept the authority of a high-credibility source. This is what several theoretical approaches predict.
+
+First, the early source credibility scholarship emphasized the cognitive response that any communication and the cues surrounding it, is likely to trigger [@Greenwald1968; @OKeefe2016: p. 143]. According to this account, low-credibility sources raise skepticism about the information and stimulate the receiver's own thoughts about the topic. This will make the congruence of information more relevant. In contrast, high-credibility sources inhibit such own-thought activation. The theory of elaboration likelihood by @PettyCacioppo1986 implies something similar. Although mainly focused on persuasion, the model posits that when "peripheral" cues are present, receivers are less likely to elaborate the substance of the information. A high-credibility source is such a cue that would inhibit one's motivation to evaluate news for its attitudinal congruence through a "central" route. Instead, receivers will follow a "peripheral" route and accept the information by a high-credibility source more uncritically.
+
+Second, the paradigm of motivated reasoning assumes that people, in general, approach information with both directional and accuracy goals [@Kunda1990; @Bolsenetal2014]: If they encounter congruent information, they might be motivated to defend their attitudes and beliefs. But the motivation to learn the truth will, on average, also be present and moderate this tendency. Of course, which motivation dominates depends on the issue or the context. It is likely that sometimes, people are either motivated by directional or accuracy goals. For many encounters with news reports, however, both motivations might be at play, and accuracy goals might bring people to look beyond the content. In this case, source credibility should play a greater role.
+
+The empirical evidence for an interaction between congruence and source credibility is slim. Studies motivated by cognitive response theory only partly found the predicted effect [@Aronsonetal1963; @HarmonConey1982; @Chebatetal1988]. Related designs from political science mostly interpreted source credibility as ideological closeness, but the findings about how such closeness would interact with attitudinal congruence vary [@Kahanetal2010; @Kuruetal2017; @ChiaChang2017; @BaumGroeling2009; @Berinsky2009]. Recent studies on fake news testing accuracy judgments sometimes include source attributions, using true and false news items found online [@PennycookRand2017b; @Diasetal2020]. But since false content and fake sources mostly co-vary in these designs, it is impossible to disentangle the effect of congruence and the source. 
+
+Lacking more direct evidence, I expect that a high-credibility source can moderate the effect of congruence, compared to a low-credibility source. In other words, I predict an interaction so that *the difference in accuracy judgments between congruent and incongruent news reports is smaller for a high-credibility source than for a low-credibility source (H3).*
+
+## Heterogeneous effects
+
+Especially regarding source credibility effects, evidence about heterogeneity is scarce. As a review of the literature remarks, the "interaction between source credibility and demographics of recipients has not been researched or analyzed to a great extent" [@Pornpitakpan2004: p. 263]. Regarding biased processing, some recent papers have shed light on its prevalence along demographic and psychological factors [e.g. @AllcottGentzkow2017; @PennycookRand2019a], but do not offer clear expectations about heterogeneity of the effects studied here.
+
+Hence, I follow an exploratory approach taking into account a range of variables relevant in the wider literature on news processing online. *Age* is an important influence on news-related outcomes, such as media skepticism [@Gunther1992; @Metzgeretal2003] or digital literacy [@GuessMunger2020]. *Education* has been found to correlate with the ability to evaluate internet content [@Foggetal2001] and is debated to affect bias processing [@Kahan2013b; @Tappinetal2018], similarly to related variables such as *political knowlegde* or *political interest* [@Bailetal2020]. Indicators of political participation, e.g., *turnout*, have shown to affect outcomes like the evaluation and selection of media sources [@Valloneetal1985; @IyengarHahn2009]. There is a debate about the role of *ideology* in information processing, with some arguing that conservatives are more likely to fall for their biases [@Jost2017; but @Kahan2016b; @Dittoetal2018a]. The effect of sources is further likely to vary along different dimensions of media attitudes, such as *mainstream media trust* [@FlanaginMetzger2000; @Kiousis2001; @KohringMatthes2007; @Tsfati2010], *frequency of media use* [@Greer2003; @AllcottGentzkow2017], and *importance of social media*.
+
+# Methods {#sec:methods} 
+
+I conducted an online survey experiment in Germany between September 18th and 24th 2017. The selected topics---welfare state, domestic security, immigration, and European integration---were chosen to guarantee wide coverage of different topic dimensions of German politics [cf. @Jankowskietal2016]. The non-probability sample was recruited via Qualtrics. To enhance external validity, I set three sampling quotas in reference to the German electorate: After giving consent at the beginning of the survey, subjects indicated their gender, age and educational attainment and were screened in or out accordingly. Towards the end of the study, quotas were relaxed to ensure a sufficient sample size, but the sample is approximately representative on gender (`r round(prop.table(table(data$sex))*100, 1)[2]` percent female), age (median = `r median(data$age)` years), education and state of residence compared with the population (see SI). Participants that were speeding through the questionnaire (16 participants) as well as those who did not complete the survey (62 participants) were excluded from payment by Qualtrics. I therefore did not include them in the analysis. The final sample contained `r nrow(data)` subjects, slightly above the target according to a previous power analysis to discover small to moderate effects (cf. SI).
+
+At the experimental stage, subjects were confronted with a sequence of four news reports and asked to judge the accuracy of each. Independently for each of the four topics, subjects were randomly assigned to one of four treatments in a between-subjects $2\times2$ design.^[As the order of reports was not randomized, it could be that the accuracy judgment of one report depended on the treatment a subject was assigned to for a previous report. Robustness checks reported in the SI show this is not the case.] The distributions of standard demographics do not differ significantly across treatments (see SI). Each news report discussed the result of a journalistic investigation. To maximize experimental realism, reports were shown with the screenshot of a news media "post" as it would appear on Facebook, showing a headline, a teaser and a photo, with the name, logo and URL of the outlet. The only visual difference to a real post was that hyperlinks were deactivated and that no reactions or comments below the post were given. Figure \@ref(study1-stimulus) shows an example of a screenshot. The tasks therefore resembled a typical encounter with news on Facebook, in which a post presents the main message of the report with a headline and a teaser, and provides access to the entire report. 
+
+[FIGURE \@ref(study1-stimulus) HERE]
+
+*Content Treatment*: Each topic revolved around a specific factual question of political relevance that was little-discussed so that I could assume that people did not have detailed knowledge about it. For each issue, I departed from some available data point to construct two factual claims congruent for either side of the attitude spectrum. Subjects were randomly exposed to either the left-wing or the right-wing report.^[Although topics cannot always be neatly arranged according to the left-right spectrum, I will for the sake of simplicity refer to those in favour of a strong welfare state, against law-and-order politics, in favour of immigration and in favour of European integration as left-wing and vice versa.] Consider the topic immigration for illustration. The question addressed by the report was how well refugees in Germany placed into apprenticeships succeeded compared to natives. At the time of the study, the issue had seen little public attention and there was only some data available. One news report I constructed claimed that completion rates between refugees and natives were similar, which can be interpreted as congruent with immigration-friendly attitudes. The other report claimed that refugees had lower completion rates than natives, congruent for those with a immigration-critical outlook. Table \@ref(tab:content-treatment-table) presents the headlines of all topics. Full wording can be found in the SI.)
+
+[TABLE \@ref(tab:content-treatment-table) here]
+
+*Source Treatment*: Each report had a source attribution shown by a name and a logo. The high-credibility source was operationalized as "Tagesschau", the news show of the biggest German public broadcaster. It generally scores highest as the most well-known news brand in Germany and was among the top in a pretest I ran on 30 outlets (see SI). For the low-credibility source, I picked "Neueste Nachrichten", an existing web site that is not a news organization, but seems to be run by a private person, and posts false information only. Its neutral name (loosely translatable as "Current News") and sober logo make do not raise immediate suspicion---similar to the "Denver Guardian" mentioned above. The source had hardly any Facebook followers at the time of the experiment. I therefore assumed that subjects would not know it to be a fake-news site.
+
+*Outcome*: After each report, accuracy judgments were measured on a 11-point scale with the question: "How much do you believe in the accuracy of the information presented?". Despite the attempt to construct news reports to be equally plausible, average accuracy judgments of opposite claims significantly differed for two topics (welfare state and European integration). Since the outcome of interest for this treatment dimension is not the plausibility of constructed information per se, but the interaction with attitudes, I standardized belief per news report. The recoded variable thus represents the deviation from the average belief of that report.
+
+```{r alpha-attitudes}
+
+topic1_alpha <- data %>% 
+  select(matches("topic1_attitude\\d$")) %>% 
+  psych::alpha() 
+
+topic2_alpha <- data %>% 
+  select(matches("topic2_attitude\\d$")) %>% 
+  psych::alpha() 
+
+topic3_alpha <-data %>% 
+  ungroup() %>% 
+  select(matches("topic3_attitude\\d$")) %>% 
+  psych::alpha() 
+
+topic4_alpha <- data %>% 
+  ungroup() %>% 
+  select(matches("topic4_attitude\\d$")) %>% 
+  psych::alpha()
+
+```
+
+*Topic attitudes*: Before the experimental stage, attitudes were elicited by asking about agreement with statements (four for each topic) on an 11-point scale. The items had a clear substantive relation to the factual claims of the respective news report. To reduce these question batteries to one dimension for each topic, I constructed average attitude indices. For two out of four topics, the respective battery showed mediocre reliability (welfare state: Cronbach's alpha = `r round(topic1_alpha$total["raw_alpha"], 2)`; domestic security: Cronbach's alpha = `r round(topic2_alpha$total["raw_alpha"], 2)`; immigration: Cronbach's alpha = `r round(topic3_alpha$total["raw_alpha"], 2)`; European integration: Cronbach's alpha = `r round(topic4_alpha$total["raw_alpha"], 2)`). The SI shows that for these two topics, results are largely robust if individual items are used for the analysis instead. All attitude-related variables were coded so that higher values represented a position typically seen as right-wing. Item wordings and distributions of single items can be found in the SI.
+
+```{r alpha-trustsource}
+
+trustsource_mainstream_alpha <- data %>% 
+  select(all_of(mainstream_sources)) %>% 
+  psych::alpha() 
+
+```
+
+*Further covariates*: Apart the socio-demographics used for screening, some further pre-treatment variables to be explored as moderators were measured: Place of residence (recoded into a dummy variable for living in Western Germany), political orientation (11-point scale), political interest (11-point scale), political knowledge (index out of 11 knowledge questions), their intentions to turn out or not, their trust in the mainstream media (average index of trust towards five mainstream sources measured on an 11-point scale, Cronbach's alpha = `r round(trustsource_mainstream_alpha$total[["raw_alpha"]], 2)`), the importance of Facebook for news consumption (4-point from "completely irrelevant" to "very relevant"), how often they consumed news (four options from "completely irrelevant" to "very relevant"). 
+
+As subjects might take advantage of the unsupervised situation of an online experiment to verify information [cf. @JensenThomsen2014], a cheating-control report was included after the first topic: It reported a simple and true factual claim that could be quickly read up online. Those subjects who judged this report as maximally accurate but spent more than fifteen seconds on the post were classified as cheating suspects (n = `r nrow(data[data$truestory_belief == 10 & data$truestory_belief_submit > 15, ])`). Robustness checks excluding these cheating subjects do not change the main results (see SI). Informed consent was obtained from all individual participants at the beginning of the study. As subjects were unaware of treatment assignment and were told that the news reports were real and had been collected online in the preceding months, I debriefed subjects in detail at the end of the survey, providing them with accurate data about the three manipulated news reports and clarifying the questionable character of the unknown source. I also encouraged them to provide feedback and any concerns via email. Responses were overwhelmingly positive. The design was approved by ### ANONYMZED ### under file number #C-SPS-Res-2017-18.
+
+# Results {#sec:results}
+
+## Main effects
+
+```{r study1-fullmodels}
+
+# Content treatment: 0 is left-wing congruent content, 1 is right-wing congruent content
+# Attitude: low is left-wing, high is right-wing
+
+study1 <- list()
+
+#### Topic 1 ####
+
+### Main models: Attitude 2
+
+study1$topic1_h1a <- glm(topic1_belief_stand ~ 
+                    topic1_content*topic1_attitudes_average, data = data)
+
+study1$topic1_h2a <- glm(topic1_belief_stand ~ 
+                  topic1_source, data = data)
+
+study1$topic1_h3a <- glm(topic1_belief_stand ~ 
+                  topic1_content*topic1_attitudes_average*topic1_source, data = data)
+
+#### Topic 2 ####
+
+study1$topic2_h1a <- glm(topic2_belief_stand ~ 
+                    topic2_content*topic2_attitudes_average, data = data)
+
+study1$topic2_h2a <- glm(topic2_belief_stand ~ 
+                  topic2_source, data = data)
+
+study1$topic2_h3a <- glm(topic2_belief_stand ~ 
+                  topic2_content*topic2_attitudes_average*topic2_source, data = data)
+
+#### Topic 3 ####
+
+study1$topic3_h1a <- glm(topic3_belief_stand ~ 
+                  topic3_content*topic3_attitudes_average, data = data)
+
+study1$topic3_h2a <- glm(topic3_belief_stand ~ 
+                  topic3_source, data = data)
+
+study1$topic3_h3a <- glm(topic3_belief_stand ~ 
+                  topic3_content*topic3_attitudes_average*topic3_source, data = data)
+
+#### Topic 4 ####
+
+study1$topic4_h1a <- glm(topic4_belief_stand ~ 
+                  topic4_content*topic4_attitudes_average, data = data)
+
+study1$topic4_h2a <- glm(topic4_belief_stand ~ 
+                  topic4_source, data = data)
+
+study1$topic4_h3a <- glm(topic4_belief_stand ~ 
+                  topic4_content*topic4_attitudes_average*topic4_source, data = data)
+
+#### Rename coefficients for table and make cells bold ###
+
+models_h1a <- paste0("topic", 1:4, "_h1a")
+for(i in models_h1a) {
+    names(study1[[i]]$coefficients) <- c("Constant",
+                                             "Report (0 = left-wing)",
+                                             "Attitude",
+                                             "Report * Attitude")
+}
+
+models_h2a <- paste0("topic", 1:4, "_h2a")
+for(i in models_h2a) {
+  names(study1[[i]]$coefficients) <- c("Constant",
+                                       "Source (0 = fake)")
+}
+
+models_h3a <- paste0("topic", 1:4, "_h3a")
+for(i in models_h3a) {
+  names(study1[[i]]$coefficients) <- c("Constant",
+                                       "Report (0 = left-wing)",
+                                       "Attitude",
+                                       "Source (0 = fake)",
+                                       "Report * Attitude",
+                                       "Report * Source",
+                                       "Attitude * Source",
+                                       "Report * Attitude * Source")
+}
+
+```
+
+```{r study1-h1a-margins}
+
+# Topic 1
+
+topic1_h1_predict_levels <- marg(study1$topic1_h1a, 
+                                 var_interest = "topic1_content", 
+                                 at = list("topic1_attitudes_average" = c(-5,5)),
+                                 type = "levels")
+
+topic1_h1_predict <- marg(study1$topic1_h1a, 
+                       var_interest = "topic1_content", 
+                       at = list("topic1_attitudes_average" = c(-5:5)),
+                                 type = "effects")
+
+# Topic 2
+
+topic2_h1_predict_levels <- marg(study1$topic2_h1a, 
+                                 var_interest = "topic2_content", 
+                                 at = list("topic2_attitudes_average" = c(-5,5)),
+                                 type = "levels")
+
+topic2_h1_predict <- marg(study1$topic2_h1a, 
+                       var_interest = "topic2_content", 
+                       at = list("topic2_attitudes_average" = c(-5:5)), 
+                       type = "effects")
+
+# Topic 3
+
+topic3_h1_predict_levels <- marg(study1$topic3_h1a, 
+                                 var_interest = "topic3_content", 
+                                 at = list("topic3_attitudes_average" = c(-5,5)),
+                                 type = "levels")
+
+topic3_h1_predict <- marg(study1$topic3_h1a, 
+                       var_interest = "topic3_content", 
+                       at = list("topic3_attitudes_average" = 
+                                   c(-5:5)), 
+                       type = "effects")
+
+# Topic 4
+
+topic4_h1_predict_levels <- marg(study1$topic4_h1a, 
+                                 var_interest = "topic4_content", 
+                                 at = list("topic4_attitudes_average" = c(-5,5)),
+                                 type = "levels")
+
+topic4_h1_predict <- marg(study1$topic4_h1a, 
+                       var_interest = "topic4_content", 
+                       at = list("topic4_attitudes_average" = 
+                                   c(-5:5)), 
+                       type = "effects")
+
+```
+
+```{r study1-attitude-rugs}
+
+topic1_attitude_df <- data %>% 
+  filter(!is.na(topic1_belief_stand)) %>%
+  select(topic1_attitudes_average) %>%
+  mutate(y = 0)
+
+topic2_attitude_df <- data %>% 
+  filter(!is.na(topic2_belief_stand)) %>%
+  select(topic2_attitudes_average) %>%
+  mutate(y = 0)
+
+topic3_attitude_df <- data %>% 
+  filter(!is.na(topic3_belief_stand)) %>%
+  select(topic3_attitudes_average) %>%
+  mutate(y = 0)
+
+topic4_attitude_df <- data %>% 
+  filter(!is.na(topic4_belief_stand)) %>%
+  select(topic4_attitudes_average) %>%
+  mutate(y = 0)
+
+```
+
+According to hypothesis H1a, people *people judge an attitudinally congruent report as more accurate than an attitudinally incongruent report*. To test this, I regress belief on an interaction of the content treatment and the attitude index, separately for each topic. Regression tables can be found in the SI Figure \@ref(fig:fig-h1a) visualizes the results. For each topic, the plot shows predicted accuracy judgments at the extreme attitude positions (the left end of the x-axis corresponds to the most left-wing positions), grouped by content treatment. Coefficients and p-values show that there is a significant interaction for news on the welfare state (p = `r  roundr(summary(study1$topic1_h1a)$coefficients[4, 4])`) and on immigration (p = `r  roundr(summary(study1$topic3_h1a)$coefficients[4, 4])`), but only a marginally significant interaction for the European integration topic (p = `r  roundr(summary(study1$topic4_h1a)$coefficients[4, 4])`). For news on domestic security, the effect is insignificant (p = `r  roundr(summary(study1$topic2_h1a)$coefficients[4, 4])`).
+
+[FIGURE \@ref(fig:fig-h1a) HERE]
+
+To understand the substantive effect size of the modeled interaction and to take into account the difficulty of interpreting interaction coefficients [cf. @Bramboretal2006], I next examine marginal effects with the delta method. Consider the case of immigration: At the most pro-immigration attitude position, the predicted edge of pro-immigration information over anti-immigration information on belief is `r round(abs(topic3_h1_predict[[1]][["Margin"]][2]), 2)` standardized units (SE of difference = `r format(round(topic3_h1_predict[[1]][["Standard.Error"]][2], 2), nsmall = 2)`, p = `r format(round(topic3_h1_predict[[1]][["P.Value"]][2], 3), nsmall = 2)`). At the most anti-immigration position, the predicted margin is `r format(round(abs(topic3_h1_predict[[11]][["Margin"]][2]), 2), nsmall = 2)` standardized units (SE of difference = `r format(round(topic3_h1_predict[[11]][["Standard.Error"]][2], 2), nsmall = 2)`, p = `r format(round(topic3_h1_predict[[11]][["P.Value"]][2], 3), nsmall = 2)`). 
+These effect sizes are comparable to studies with a similar design [e.g. @Kuruetal2017]. As detailed in the SI, for the three significant topics, marginal effects are significant at both ends of the attitude spectrum.
+
+```{r study1-h2a-margins}
+
+#### Topic 2 ####
+
+topic2_h2_predict <- marg(study1$topic2_h2a, 
+                       var_interest = "topic2_source",
+                       type = "effects")
+
+```
+
+Hypothesis H2a predicts that *people judge news reports by a high-credibility source as more accurate than news reports by a low-credibility source*. To test this idea, I regress belief on a source treatment dummy. Figure \@ref(fig:figure-h2a) illustrates the treatment differences and reports the respective regression coefficients and p-values. Treatment differences look small, and indeed, effects turn out statistically insignificant for the topics welfare state (p = `r roundr(summary(study1$topic1_h2a)$coefficients[2, 4])`) and domestic security (p = `r roundr(summary(study1$topic3_h2a)$coefficients[2, 4])`). For the news report on European integration, the effect is only marginally significant (p = `r roundr(summary(study1$topic4_h2a)$coefficients[2, 4])`). Only for the domestic security topics does the source make a highly significant difference (p = `r roundr(summary(study1$topic2_h2a)$coefficients[2, 4])`). For this topic, being exposed to the real source compared to the fake source increases belief in the news report by `r round(abs(topic2_h2_predict[[1]][["Margin"]][2]), 2)` standardized units. This is comparable to source effects in similar studies [e.g. @KnightGallup2018], however it is much smaller than the effect of congruence at extreme attitude positions. Note that domestic security happens to be the topic for which no assimilation bias occurs and welfare state the topic for which congruence only has a marginally significant effect.
+
+[FIGURE \@ref(fig:figure-h2a) HERE]
+
+## Crediblity-bias interaction 
+
+Finally, H3a predicts that *the difference in accuracy judgments between congruent and incongruent news reports is smaller for a high-credibility source than for a low-credibility source*. Regressions of accuracy judgments on a three-way interaction between the underlying attitude index, the content treatment, and the source treatment test this expectation. Full results are reported in the Appendix. In Figure \@ref(fig:fig-h3a), plots show predicted accuracy judgements at the extreme attitude positions, grouped by the 2x2 treatments. The regression coefficients of the three-way interactions are reported in each panel. Only for the welfare state news report, there is some graphic indication that for the real source, the gap between believing a congruent and an incongruent report becomes smaller. For the three other topics, the substantive effect directions do not reflect the expectations. Interactions coefficients are insignificant for all topics. Hence, there is no support for the idea that sources can mitigate assimilation bias. Results are similar when using a congruence treatment variable as a combination of content treatment status and attitude position. 
+
+All results are robust to a number of alternative specifications, as can be seen in the SI, with only one exception: When re-running analyses for the welfare state topic with attitude items individually to account for the weak reliability of the battery, the congruence interaction becomes significant for one of four items. 
+
+[FIGURE \@ref(fig:fig-h3a) HERE]
+
+## Heterogeneity
+
+```{r heterogeneity-setup}
+
+# Random forest specifications
+number_of_trees <- 30000
+tree_depth <- 4
+
+# Pre-treatment variables
+
+X_vars <- c(
+  "sex", 
+  "age", 
+  "education_num",
+  "federal_state_west",
+  "trustsource_mainstream", 
+  "leftright", 
+  "political_interest", 
+  "political_knowledge", 
+  "importance_fb_num", 
+  "media_frequency_num", 
+  "turnout_intent_num"
+  )
+
+# Generate plots only for these three variables - more in Appendix
+
+vars_presented <- c("age", "trustsource_mainstream")
+
+# Function to grow forest and generate plots
+
+forest_data_plots <- function(W, Y, ylim_low, ylim_high, 
+                              varlabels = TRUE) {
+  
+  set.seed(1404)
+  
+  # Subset needed data
+  data_het <- data %>% 
+    select(all_of(X_vars), W, Y) %>% 
+    na.omit()
+  data_X <- data_het %>% select(-Y, -W)
+  data_Y <- data_het[[Y]]
+  data_W <- data_het[[W]]
+  
+  # Estimate pilot forest
+  pilot_forest <- causal_forest(
+    X = data_X,
+    Y = data_Y,
+    W = data_W,
+    num.trees = number_of_trees
+    )
+  
+  # Variable importance pilot forest
+  variable_importance <- pilot_forest %>%
+    variable_importance(max.depth = tree_depth) %>%
+    as.data.frame() %>%
+    mutate(variable = colnames(pilot_forest$X.orig)) %>%
+    arrange(desc(V1))
+  
+  # Select variables with importance higher than average
+  X_vars_selected <- variable_importance %>%
+    filter(V1 >= median(V1)) %>%
+    select(variable) %>%
+    pull()
+  
+  # Subset data again
+  data_het <- data %>% 
+    select(all_of(X_vars_selected), W, Y) %>% 
+    na.omit()
+  
+  # Split treatment, outcome, covariates
+  data_X <- data_het %>% select(-Y, -W)
+  data_Y <- data_het[[Y]]
+  data_W <- data_het[[W]]
+  
+  # Estimate final forest
+  forest <- causal_forest(
+    X = data_X,
+    Y = data_Y,
+    W = data_W,
+    num.trees = number_of_trees
+    ) 
+  
+  # Recalculate and annotate importance
+  variable_importance <- forest %>%
+    variable_importance(max.depth = tree_depth) %>%
+    as.data.frame() %>%
+    mutate(variable = colnames(forest$X.orig)) %>%
+    arrange(desc(V1)) %>%
+    mutate(label = case_when(
+        variable == "sex" ~ "Gender",
+        variable == "age" ~ "Age", 
+        variable == "education_num" ~ "Education",
+        variable == "federal_state_west" ~ "Residence",
+        variable == "trustsource_mainstream" ~ "Media trust",
+        variable == "leftright" ~ "Left-right orientation",
+        variable == "political_interest" ~ "Political interest",
+        variable == "political_knowledge" ~ "Political knowledge",
+        variable == "importance_fb_num" ~ "Importance of FB",
+        variable == "media_frequency_num" ~ "Frequency of media use",
+        variable == "turnout_intent_num" ~ "Turnout intention"
+        )
+    )
+  
+  # Predict values  
+  tau_hat <- predict(forest, estimate.variance = TRUE)
+  data_het_predict <- bind_cols(data_het, tau_hat)
+
+  # Plot for age, media trust, knowledge
+  plot_list <- list()
+  
+  for (i in 1:length(vars_presented)) {
+    
+    var <- vars_presented[i]
+    
+    if (varlabels == TRUE) {
+      var_label <- variable_importance$label[variable_importance$variable == var]
+    } else {
+      var_label <- NULL
+    }
+
+    data_plot <- data_het_predict %>% select(var, predictions)
+
+    plot <- ggplot(data_plot, aes_string(
+      x = as.name(var),
+      y = as.name("predictions"))) +
+      geom_point(alpha = 3 / 10) +
+      geom_smooth(method = "loess", span = 1, se = T, colour = "gray") +
+      labs(x = var_label) +
+      ylim(ylim_low, ylim_high) +
+      theme_light() +
+      theme(
+        axis.text.x = element_text(size = 6),
+        axis.text.y = element_text(size = 6),
+        axis.title.y = element_blank(),
+        plot.title = element_blank(),
+        axis.title.x = element_text(size = 9))
+    
+    plot_list[[i]] <- plot
+  }
+return(plot_list)
+}
+
+
+```
+
+Some of the previous null findings could mask important treatment heterogeneity. Given a large set of pre-treatment measures potentially of interest, testing for heterogeneity "manually" by either subsetting the data, or by testing a large number of interactions would be problematic due to multiple testing issues [@AtheyImbens2017]. Increased interest in heterogeneous treatment effects has given rise to a number of more principled approaches [e.g. @Grimmeretal2017; @Kuenzeletal2019]. Here, I apply the recently developed "causal forest" method [@WagerAthey2018; @Atheyetal2019], which allows for testing heterogeneity across any number of covariates without running into validity issues.
+
+Since this technique requires a binary treatment indicator, I focus on heterogeneity of congruence and source effect---I leave out the interaction which would require subset the data to insufficient sample size. To grow causal forests for the two effects across all four topics (i.e., eight forests), I follow the procedure in @AtheyWager2019: First, I grow a pilot forest with 10,000 trees, a tree depth of 4 and the maximum set of potential moderators, namely gender, age, education, residence, mainstream media trust, left-right political orientation, political interest, political knowledge, importance of Facebook for media consumption, frequency of media use and turnout intention. I then regrow the causal forest excluding variables with below-median "importance", an indicator of how many times a variable was used to partition the data. For this final forest, I estimate individual-level treatment effects. Below, I present results only for the two covariates for which substantial heterogeneity emerges, namely age and mainstream media trust. Complete results are reported in the SI.
+
+First, consider heterogeneity of the congruence effect. As causal forests require a simple treatment variable, I recoded the content treatment into a congruence treatment. On this new variable, someone with a left-wing position on the respective attitude index gets a value of one if seeing the left-wing report, and a value of zero if seeing the right-wing report; and vice versa for someone with a right-wing position. Figure \@ref(fig:fig-het-cong) shows the plots of the estimated individual-level treatment effects against the two covariates. For age, similar patterns of heterogeneity are found across topics: The older the subjects, the greater the effect of congruence (although this trend is less clear for the migration topic). For mainstream media trust, the evidence suggests another difference along topics: For the three topics for which congruence matters most (welfare state, immigration, European integration), the congruence effect matters somewhat *less* for people with higher media trust; for domestic security, this is not the case. In general, for this latter topic the graphs show little congruence effect heterogeneity overall. 
+
+[FIGURE \@ref(fig:fig-het-cong) HERE]
+
+Next, consider heterogeneity of the source treatment, illustrated by Figure \@ref(fig:fig-het-source). Again, the source's impact varies depending on age: Older people make less of a difference between a high-credibility and low-credibility source. This is line with research on digital literacy that shows that age is an important factor in the dissemination of misinformation online [@Grinbergetal2019; @Osmundsenetal2020]. The source effect is greater for people with higher mainstream media trust, especially for the three topics welfare state, immigration and European integration. For domestic security, there is no such relationship. 
+
+[FIGURE \@ref(fig:fig-het-source) HERE]
+
+## Discussion of topic-level differences
+
+The results vary markedly across topics. For two out of for topics, assimilation bias shows as expected, but the source has no influence on news belief. For the European integration topic, there is weak evidence for assimilation bias and a source effect. For the domestic security topic, the source, but not the congruence of the report matters. This suggests that, rather than interactive, assimilation bias and source effects substitute each other: when people make a difference between congruent and incongruent information, they do not make a difference between sources, and vice versa. This topic-level pattern also shows when looking at media trust as a moderator: Higher media trust weakens assimilation bias for topics where bias generally is strong, but actually increases it where there is generally less bias. Of course, to be more than just speculative, this claim of a topic-level "substitution" dynamic would have to be tested across a larger range of topics. 
+
+What is it about topics that makes the two effects to show differently? I now explore two ideas. One is the topic's role in political identities. According to motivated-reasoning theory, pre-existing attitudes matter insofar they are central to someone's identity [@Kahan2016a; @NyhanReifler2016]. To account for this aspect, some studies separately measure attitude *positions* and attitude *strength* [@TaberLodge2006; @Taberetal2009]. Attitude strength was not measured in this study, but since the two measures tend to be correlated [@Taberetal2009: fn. 5], topics with stronger attitudes should also show a more polarized distribution. Accordingly, the underlying attitudes on immigration should be most polarized, and attitudes about domestic security least polarized. However, histograms of the attitude distributions (see SI) do not give support to this idea. 
+
+Another, related, reason for the differences might be the topic's salience, i.e. the general importance of a political issue at the given point in time [@Wlezien2000]. Theorists of motivated reasoning argue that citizens are more likely to be aware of their own positions and motivated to defend them for salient issues [@Flynnetal2017]. Issue salience can be approximated with Google Trends data [@Mellon2013]. The Google Trends API provides the frequency of a limited number of search terms relative to each other. To test the idea that salience is related to the presence of assimilation bias versus a source effect, I examined the prevalence of search words closely related to the respective news reports, for a 3-month period leading up to the study in Germany.^[The Google Trends API allows queries for five words at a time. Four each topic, I defined four important words. Welfare state: "Hartz 4" (short-hand for long-term unemployment benefits), "sanctions", "unemployment", "unemployment benefits"; Domestic security: "endangerer", "terror", "terrorism", "domestic security"; Immigration: "integration", "migration", "refugees", "immigration"; Europe: "EU", "Commission", "bureaucracy", "regulation". I then checked which of all sixteen words had the highest relative prevalence across topics ("refugees"). Next, I ran a query for each topic with the four topic-related words plus the globally most frequent word. The resulting data gave me a search prevalence of each word for each day, relative to the day that "refugees" was most in demand (indexed at 100). Finally, I aggregated prevalences per topic.] 
+
+```{r study1-salience-data, eval = FALSE}
+
+# Welfare state
+
+topic1_words <- c("Hartz 4", "Sanktionen", "Arbeitslosigkeit", "Arbeitslosengeld")
+
+topic1_trends <- gtrends(c(topic1_words, "Flüchtlinge"), 
+                         gprop = "web", 
+                         time = "2017-07-17 2017-10-15", 
+                         geo = "DE")[[1]]
+
+topic1_trends %<>% 
+  pivot_wider(names_from = c("keyword"), values_from = "hits") %>%
+  dplyr::select(-time, -gprop, -category, -geo) %>%
+  mutate_all(funs(str_replace(., "<1", "0"))) %>%
+  mutate(date = as.Date(date, "%Y-%m-%d")) %>%
+  mutate_if(is.factor, as.character) %>%
+  mutate_if(is.character, as.numeric) %>% 
+  mutate(topic1_sum = select(., topic1_words) %>% rowSums(na.rm = TRUE))
+
+# Domestic security
+
+topic2_words <- c("Gefährder", "Terrorismus", "Innere Sicherheit", "Terroranschläge")
+
+topic2_trends <- gtrends(c(topic2_words, "Flüchtlinge"), 
+                         gprop = "web", 
+                         time = "2017-07-17 2017-10-15", 
+                         geo = "DE")[[1]]
+
+topic2_trends %<>% 
+  pivot_wider(names_from = c("keyword"), values_from = "hits") %>%
+  dplyr::select(-time, -gprop, -category, -geo) %>%
+  mutate_all(funs(str_replace(., "<1", "0"))) %>%
+  mutate(date = as.Date(date, "%Y-%m-%d")) %>%
+  mutate_if(is.factor, as.character) %>%
+  mutate_if(is.character, as.numeric) %>% 
+  mutate(topic2_sum = select(., topic2_words) %>% rowSums(na.rm = TRUE))
+
+# immigration
+
+topic3_words <- c("Integration", "Flüchtlinge", "Einwanderung", "Flüchtlinge Ausbildung")
+
+topic3_trends <- gtrends(c(topic3_words), 
+                         gprop = "web", 
+                         time = "2017-07-17 2017-10-15", 
+                         geo = "DE")[[1]]
+
+topic3_trends %<>% 
+  pivot_wider(names_from = c("keyword"), values_from = "hits") %>%
+  dplyr::select(-time, -gprop, -category, -geo) %>%
+  mutate_all(funs(str_replace(., "<1", "0"))) %>%
+  mutate(date = as.Date(date, "%Y-%m-%d")) %>%
+  mutate_if(is.factor, as.character) %>%
+  mutate_if(is.character, as.numeric) %>% 
+  mutate(topic3_sum = select(., topic3_words) %>% rowSums(na.rm = TRUE))
+
+# European integration
+
+topic4_words <- c("Europäische Union", "Kommission", "Bürokratie", "Regulierung")
+
+topic4_trends <- gtrends(c(topic4_words, "Flüchtlinge"), 
+                         gprop = "web", 
+                         time = "2017-07-17 2017-10-15", 
+                         geo = "DE")[[1]]
+
+topic4_trends %<>% 
+  pivot_wider(names_from = c("keyword"), values_from = "hits") %>%
+  dplyr::select(-time, -gprop, -category, -geo) %>%
+  mutate_all(funs(str_replace(., "<1", "0"))) %>%
+  mutate(date = as.Date(date, "%Y-%m-%d")) %>%
+  mutate_if(is.factor, as.character) %>%
+  mutate_if(is.character, as.numeric) %>% 
+  mutate(topic4_sum = select(., topic4_words) %>% rowSums(na.rm = TRUE))
+
+# All topics
+
+topics_trends <- cbind(topic1_trends, topic2_trends, topic3_trends, topic4_trends) 
+topics_trends <- topics_trends[, !duplicated(colnames(topics_trends))]
+
+# write.csv(topics_trends, file = "topics_trends.csv")
+
+```
+
+Figure \@ref(fig:fig-study1-salience) depicts the relative topic prevalences, plotted per topic against time. The fielding period is marked in gray. The data supports the idea that salience matters. The frequency of search words related to immigration---for which assimilation bias was strongest---suggests that it was also the most salient topic. The topic with the second-strongest assimilation bias, welfare state, is also the second-most salient topic, followed by European integration, for which there was weak indication for both assimilation bias and a source effect. The least-searched cluster of words is the one related to domestic security, for which there was no congruence effect. Again, more research is needed to more rigorously test the idea that salience affects source and congruence effects.
+
+[FIGURE \@ref(fig:fig-study1-salience) HERE]
+
+# Conclusion {#sec:conclusion}
+
+This study suggests that the effect of sources on people's accuracy judgment of news is limited, and that it does not moderate the tendency to believe what is congruent with individual attitudes. What is more, the influence of source credibility might be inversely related to that of congruence, depending on the topic: When people pay attention to the source, they do not follow their attitudes, and vice versa. There is some indication that the more salient a topic, the more attitudinal congruence matters at the expense of sources. When the source does have a statistically significant effect, it is substantively negligible compared to the size of assimilation bias. 
+
+Some limits of the present design may open up inspirations for future research. First, the source manipulation may lack ecological validity because in the real world, people can back-check the name of sources, which they were asked not to do in this study. After verification, news consumers might process news reports differently. However, we also know that much news consumption happens superficially, with people "scanning" headlines and articles [@Kruikemeieretal2018; @Gabielkovetal2016]. Likely, social media users do not check every source they come across in their newsfeeds, just like in this study. However, the fact that they can yields some interesting follow-up questions: For example, does incongruent information make people more prone to verify questionable sources?
+
+Second, the data do not tell us what it is about two sources that does (or does not) produce a difference. This paper studied a contrast that is practically relevant, namely between a real source with a good reputation and a fake-news source trying to pass as professional. Of course, it could be that a low-credibility source with a different, perhaps more ostensibly "alternative" name would elicit more skepticism. From the present study, we do not know whether the source effect is small because "Neueste Nachrichten" does a good job at making a good impression, or because people do not pay attention to sources in general. As news readers on social media primarily encounter source logos and names, more work is required to understand how they process these subtle cues. 
+Third, many other variables determine how people judge the truth of information [@Decheneetal2010; @BrashierMarsh2020]. For example, the familiarity with information [@Pennycooketal2018] and the identity of the sharer on social media [@MediaInsight2017a] affect whether people believe something. The latter factor in particular seems like another factor to be studied together with the present questions. Imagine, for example, a news report shared by a Facebook friend we regard with suspicion in terms of politics. It could be that a credible source in this case would make up for our suspicion. Integrating the social network dimension into experiments studying news processing is challenging, but a promising avenue for research.
+
+Generally, the limited relevance of the source was unexpected and puts the longstanding scholarship on source credibility in perspective. Much of the research into the power of sources stems from an era when the universe of sources, at least in the realm of news, was smaller. In the age of online news and in particular social media, the role of sources needs to be re-assessed. Although the decline of media trust has been well-documented on an aggregate level [@Ladd2011; @Stroembaecketal2020], what that means for the power of sources to convince people to believe the truth rather than falsehood---or the other way around, depending on their intention---is still unanswered. 
+
+\clearpage
+
+\setstretch{1}
+
+# References
+
+::: {#refs}
+:::
+
+\clearpage
+
+# Figures
+
+\setstretch{1}
+\begin{figure}[H]
+\centering
+\caption{Example of experimental Facebook post}\label{study1-stimulus}
+		\includegraphics[width=0.6\linewidth]{figures/Fb post.png}
+\floatfoot{\textbf{Note:} The teaser translates as "Benefit cuts for those who violate Hartz IV requirements fall short of desired effects: Our data show that sanctioned move into ill-paid jobs. The risk of becoming a working poor increases", the headline as "Hartz IV benefit cuts: Sanctions push unemployed into ill-paid jobs".}
+\end{figure}
+\vspace{-0.3cm}
+\setstretch{2}
+
+```{r study1-h1a-plots, fig.cap = "Effects of attitudinal congruence on belief\\label{fig:fig-h1a}", fig.height = 2.2, out.extra = '', fig.pos= "ht"}
+
+#### Topic 1 ####
+
+annotation <- paste0("Coeff. = ", 
+                     roundr(summary(study1$topic1_h1a)$coefficients[4, 1], 
+                            dgts = 2), 
+                     "; \np = ", 
+                     roundr(summary(study1$topic1_h1a)$coefficients[4, 4]), sep="")
+
+topic1_h1_predict_df <- data.frame(content = rep(c(0,1), 2),
+                                    attitude = c(-5, -5, 5, 5),
+                                    topic1_belief_stand = NA, se = NA)
+
+for (i in 1:length(topic1_h1_predict_levels)) {
+  topic1_h1_predict_df[i*2 - 1, "topic1_belief_stand"] <-
+    topic1_h1_predict_levels[[i]][["Margin"]][1]
+  topic1_h1_predict_df[i*2, "topic1_belief_stand"] <-
+    topic1_h1_predict_levels[[i]][["Margin"]][2]
+  topic1_h1_predict_df[i*2 - 1, "se"] <-
+    topic1_h1_predict_levels[[i]][["Standard.Error"]][1]
+  topic1_h1_predict_df[i*2, "se"] <-
+    topic1_h1_predict_levels[[i]][["Standard.Error"]][2]
+}
+
+study1_congruence_topic1 <- ggplot(topic1_h1_predict_df, 
+       aes(x = attitude, 
+           y = topic1_belief_stand,, 
+           linetype = as.factor(content))) +
+  geom_point(size = 1.5) +
+  geom_path(size = 0.3) +
+  scale_linetype_discrete(labels = c("Left-wing congruent news report",
+                                     "Right-wing congruent news report")) +
+  labs(y = "Belief", 
+       x = "Welfare attitude index",
+       linetype = "Content treatment",
+       title = "(A) Welfare state") + 
+  scale_x_continuous(breaks = c(-5, 0, 5)) +
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2),
+                     labels = c(-2, -1, 0, 1, 2),
+                     limits = c(-2.5, 2.5)) +
+  theme_light() +
+  ggplot2::annotate(geom = "text", x = -3.5, y = 2.3, 
+                    label = annotation, size = 3,
+                    color = "#575757", size = 4, hjust = 0, vjust = 1) +
+  geom_rug(inherit.aes = FALSE, 
+           aes(x = topic1_attitudes_average, y = y),
+           data = topic1_attitude_df, 
+           sides="b", alpha = 0.2, size = 1, position = "jitter") +
+  theme(axis.title.x = element_text(size = 8),
+        plot.margin = unit(c(0,0,0,0.15), "cm"),
+        plot.title = element_text(size = 8)) 
+
+#### Topic 2 ####
+
+annotation <- paste0("Coeff. = ", 
+                     roundr(summary(study1$topic2_h1a)$coefficients[4, 1], 
+                            dgts = 2), 
+                     "; \np = ", 
+                     roundr(summary(study1$topic2_h1a)$coefficients[4, 4]), sep="")
+
+
+topic2_h1_predict_df <- data.frame(content = rep(c(0,1), 2),
+                                    attitude = c(-5, -5, 5, 5),
+                                    topic2_belief_stand = NA, se = NA)
+
+for (i in 1:length(topic2_h1_predict_levels)) {
+  topic2_h1_predict_df[i*2 - 1, "topic2_belief_stand"] <-
+    topic2_h1_predict_levels[[i]][["Margin"]][1]
+  topic2_h1_predict_df[i*2, "topic2_belief_stand"] <-
+    topic2_h1_predict_levels[[i]][["Margin"]][2]
+  topic2_h1_predict_df[i*2 - 1, "se"] <-
+    topic2_h1_predict_levels[[i]][["Standard.Error"]][1]
+  topic2_h1_predict_df[i*2, "se"] <-
+    topic2_h1_predict_levels[[i]][["Standard.Error"]][2]
+}
+
+study1_congruence_topic2 <- ggplot(topic2_h1_predict_df, 
+       aes(x = attitude, 
+           y = topic2_belief_stand,, 
+           linetype = as.factor(content))) +
+  geom_point(size = 1.5) +
+  geom_path(size = 0.3) +
+  scale_linetype_discrete(labels = c("Left-wing congruent news report",
+                                     "Right-wing congruent news report")) +
+  labs(y = "", 
+       x = "Security attitude index",
+       linetype = "Content treatment",
+       title = "(B) Domestic security") + 
+  scale_x_continuous(breaks = c(-5, 0, 5)) +
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2),
+                     labels = NULL,
+                     limits = c(-2.5, 2.5)) +
+  theme_light() +
+  ggplot2::annotate(geom = "text", x = -3.5, y = 2.3, 
+                    label = annotation, size = 3,
+                    color = "#575757", size = 4, hjust = 0, vjust = 1) +
+  geom_rug(inherit.aes = FALSE, 
+           aes(x = topic2_attitudes_average, y = y),
+           data = topic2_attitude_df, 
+           sides="b", alpha = 0.2, size = 1, position = "jitter") +
+  theme(axis.title.x = element_text(size = 8),
+        plot.margin = unit(c(0,0,0,0.15), "cm"),
+        plot.title = element_text(size = 8)) 
+
+#### Topic 3 ####
+
+annotation <- paste0("Coeff. = ", 
+                     roundr(summary(study1$topic3_h1a)$coefficients[4, 1], 
+                            dgts = 2), 
+                     "; \np = ", 
+                     roundr(summary(study1$topic3_h1a)$coefficients[4, 4]), sep="")
+
+topic3_h1_predict_df <- data.frame(content = rep(c(0,1), 2),
+                                    attitude = c(-5, -5, 5, 5),
+                                    topic3_belief_stand = NA, se = NA)
+
+for (i in 1:length(topic3_h1_predict_levels)) {
+  topic3_h1_predict_df[i*2 - 1, "topic3_belief_stand"] <-
+    topic3_h1_predict_levels[[i]][["Margin"]][1]
+  topic3_h1_predict_df[i*2, "topic3_belief_stand"] <-
+    topic3_h1_predict_levels[[i]][["Margin"]][2]
+  topic3_h1_predict_df[i*2 - 1, "se"] <-
+    topic3_h1_predict_levels[[i]][["Standard.Error"]][1]
+  topic3_h1_predict_df[i*2, "se"] <-
+    topic3_h1_predict_levels[[i]][["Standard.Error"]][2]
+}
+
+study1_congruence_topic3 <- ggplot(topic3_h1_predict_df, 
+       aes(x = attitude, 
+           y = topic3_belief_stand,, 
+           linetype = as.factor(content))) +
+  geom_point(size = 1.5) +
+  geom_path(size = 0.3) +
+  scale_linetype_discrete(labels = c("Left-wing congruent news report",
+                                     "Right-wing congruent news report")) +
+  labs(y = "", 
+       x = "Immigration attitude index",
+       linetype = "Content treatment",
+       title = "(C) Immigration") + 
+  scale_x_continuous(breaks = c(-5, 0, 5)) +
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2),
+                     labels = NULL,
+                     limits = c(-2.5, 2.5)) +
+  theme_light() +
+  ggplot2::annotate(geom = "text", x = -3.5, y = 2.3, 
+                    label = annotation, size = 3,
+                    color = "#575757", size = 4, hjust = 0, vjust = 1) +
+  geom_rug(inherit.aes = FALSE, 
+           aes(x = topic3_attitudes_average, y = y),
+           data = topic3_attitude_df, 
+           sides="b", alpha = 0.2, size = 1, position = "jitter") +
+  theme(axis.title.x = element_text(size = 8),
+        plot.margin = unit(c(0,0,0,0.15), "cm"),
+        plot.title = element_text(size = 8)) 
+#### Topic 4 ####
+
+annotation <- paste0("Coeff. = ", 
+                     roundr(summary(study1$topic4_h1a)$coefficients[4, 1], 
+                            dgts = 2), 
+                     "; \np = ", 
+                     roundr(summary(study1$topic4_h1a)$coefficients[4, 4]), sep="")
+
+topic4_h1_predict_df <- data.frame(content = rep(c(0,1), 2),
+                                    attitude = c(-5, -5, 5, 5),
+                                    topic4_belief_stand = NA, se = NA)
+
+for (i in 1:length(topic4_h1_predict_levels)) {
+  topic4_h1_predict_df[i*2 - 1, "topic4_belief_stand"] <-
+    topic4_h1_predict_levels[[i]][["Margin"]][1]
+  topic4_h1_predict_df[i*2, "topic4_belief_stand"] <-
+    topic4_h1_predict_levels[[i]][["Margin"]][2]
+  topic4_h1_predict_df[i*2 - 1, "se"] <-
+    topic4_h1_predict_levels[[i]][["Standard.Error"]][1]
+  topic4_h1_predict_df[i*2, "se"] <-
+    topic4_h1_predict_levels[[i]][["Standard.Error"]][2]
+}
+
+study1_congruence_topic4 <- ggplot(topic4_h1_predict_df, 
+       aes(x = attitude, 
+           y = topic4_belief_stand,, 
+           linetype = as.factor(content))) +
+  geom_point(size = 1.5) +
+  geom_path(size = 0.3) +
+  scale_linetype_discrete(labels = c("Left-wing congruent news report",
+                                     "Right-wing congruent news report")) +
+  labs(y = "", 
+       x = "Europe attitude index",
+       linetype = "Content treatment",
+       title = "(D) European integration") + 
+  scale_x_continuous(breaks = c(-5, 0, 5)) +
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2),
+                     labels = NULL,
+                     limits = c(-2.5, 2.5)) +
+  theme_light() +
+  ggplot2::annotate(geom = "text", x = -3.5, y = 2.3, 
+                    label = annotation, size = 3,
+                    color = "#575757", size = 4, hjust = 0, vjust = 1) +
+  geom_rug(inherit.aes = FALSE, 
+           aes(x = topic4_attitudes_average, y = y),
+           data = topic4_attitude_df, 
+           sides="b", alpha = 0.2, size = 1, position = "jitter") +
+  theme(axis.title.x = element_text(size = 8),
+        plot.margin = unit(c(0,0,0,0.15), "cm"),
+        plot.title = element_text(size = 8)) 
+
+#### Combine 4 plots ####
+
+ggarrange(study1_congruence_topic1, 
+         study1_congruence_topic2,
+         study1_congruence_topic3, 
+         study1_congruence_topic4,
+         font.label = list(size = 12),
+         ncol = 4, nrow = 1, 
+         common.legend = TRUE,
+         legend = "bottom")
+
+
+```
+
+```{r study1-h2a-plots, results = "hide", fig.cap = "Effects of sources on belief\\label{fig:figure-h2a}", fig.height = 2.2, out.extra = '', fig.pos= "ht"}
+
+#### Summarize treatment group statistics ####
+
+study1_source <- data %>%
+  select(topic1_source, topic2_source, 
+         topic3_source, topic4_source,
+         topic1_belief_stand, topic2_belief_stand, 
+         topic3_belief_stand, topic4_belief_stand) %>%
+  group_by(topic1_source, add = FALSE) %>% 
+  mutate(n_topic1 = n()) %>%
+  group_by(topic2_source, add = FALSE) %>% 
+  mutate(n_topic2 = n()) %>%
+  group_by(topic3_source, add = FALSE) %>% 
+  mutate(n_topic3 = n()) %>%
+  group_by(topic4_source, add = FALSE) %>% 
+  mutate(n_topic4 = n()) %>%
+  gather(key = "variable", value = "value",
+         topic1_belief_stand:topic4_belief_stand) %>%
+  mutate(n = case_when(variable == "topic1_belief_stand" ~ n_topic1,
+                       variable == "topic2_belief_stand" ~ n_topic2,
+                       variable == "topic3_belief_stand" ~ n_topic3,
+                       variable == "topic4_belief_stand" ~ n_topic4)) %>%
+  mutate(treatment = case_when(variable == "topic1_belief_stand" ~ topic1_source,
+                               variable == "topic2_belief_stand" ~ topic2_source,
+                               variable == "topic3_belief_stand" ~ topic3_source,
+                               variable == "topic4_belief_stand" ~ topic4_source)) %>%
+  group_by(variable, treatment) %>%
+  summarize(n = mean(n),
+            mean = mean(value, na.rm = TRUE),
+            var = var(value, na.rm = TRUE),
+            sd = sd(value, na.rm = TRUE)) %>%
+  mutate(se = sqrt(var/n),
+         ci_error = qt(0.975, df = n-1) * sqrt(var/n),
+         conf_low = mean - ci_error,
+         conf_high = mean + ci_error,
+         Treatment = ifelse(treatment == 1, 
+                        "Real (Tagesschau)", 
+                        "Fake (Neueste Nachrichten)")) %>%
+  ungroup() %>%
+  mutate(variable = case_when(variable == "topic1_belief_stand" ~ "Welfare",
+                              variable == "topic2_belief_stand" ~ "Security",
+                              variable == "topic3_belief_stand" ~ "Immigration",
+                              variable == "topic4_belief_stand" ~ "Europe")) %>%
+  mutate(variable = factor(variable, 
+                           ordered = TRUE,
+                           levels = c("Welfare",
+                                      "Security",
+                                      "Immigration",
+                                      "Europe"))) %>%
+  mutate(Treatment = factor(Treatment, 
+                           ordered = TRUE,
+                           levels = c("Fake (Neueste Nachrichten)",
+                                      "Real (Tagesschau)")))
+
+#### Plot treatment means and standard errors ####
+
+annotation <- paste0("Coeff. = ", round(summary(study1$topic1_h2a)$coefficients[2, 1], 3), 
+                     "; \np = ", round(summary(study1$topic1_h2a)$coefficients[2, 4], 3), sep="")
+
+study1_source_topic1 <- study1_source %>%
+  filter(variable == "Welfare") %>%
+  ggplot(aes(x = as.factor(Treatment),
+             y = mean, 
+             shape = as.factor(Treatment))) +
+  geom_point(position = position_dodge(0.6), size = 1.5) + 
+  geom_errorbar(aes(ymin = conf_low, ymax = conf_high),
+                width = .2, size = 0.3,
+                position = position_dodge(0.6)) +
+  labs(y = "Belief", x = "Treatment", title = "(A) Welfare state") +
+  scale_shape_discrete(name = "Source treatment") + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2),
+                     labels = c(-2, -1, 0, 1, 2),
+                     limits = c(-2.5, 2.5)) +
+  theme_light() +
+  theme(panel.grid.major.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        plot.margin = unit(c(0,0,0,0.2), "cm"),
+        plot.title = element_text(size = 8)) +
+  ggplot2::annotate(geom = "text", x = 0.8, y = 2.3, 
+                    label = annotation, size = 3,
+                    color = "#575757", size = 4, hjust = 0, vjust = 1)
+
+annotation <- paste0("Coeff. = ", round(summary(study1$topic2_h2a)$coefficients[2, 1], 3), 
+                     "; \np = ", round(summary(study1$topic2_h2a)$coefficients[2, 4], 3), sep="")
+  
+study1_source_topic2 <- study1_source %>%
+  filter(variable == "Security") %>%
+  ggplot(aes(x = as.factor(Treatment),
+             y = mean, 
+             shape = as.factor(Treatment))) +
+  geom_point(position = position_dodge(0.6), size = 1.5) + 
+  geom_errorbar(aes(ymin = conf_low, ymax = conf_high),
+                width = .2, size = 0.3,
+                position = position_dodge(0.6)) +
+  labs(y = "", x = "Treatment", title = "(B) Domestic Security") +
+  scale_shape_discrete(name = "Source treatment") + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2),
+                     labels = NULL,
+                     limits = c(-2.5, 2.5)) +  
+  theme_light() +
+  theme(panel.grid.major.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        plot.margin = unit(c(0,0,0,0.2), "cm"),
+        plot.title = element_text(size = 8)) +
+  ggplot2::annotate(geom = "text", x = 0.8, y = 2.3, 
+                    label = annotation, size = 3,
+                    color = "#575757", size = 4, hjust = 0, vjust = 1)
+
+annotation <- paste0("Coeff. = ", round(summary(study1$topic3_h2a)$coefficients[2, 1], 3), 
+                     "; \np = ", round(summary(study1$topic3_h2a)$coefficients[2, 4], 3), sep="")
+ 
+study1_source_topic3 <- study1_source %>%
+  filter(variable == "Immigration") %>%
+  ggplot(aes(x = as.factor(Treatment),
+             y = mean, 
+             shape = as.factor(Treatment))) +
+  geom_point(position = position_dodge(0.6), size = 1.5) + 
+  geom_errorbar(aes(ymin = conf_low, ymax = conf_high),
+                width = .2, size = 0.3,
+                position = position_dodge(0.6)) +
+  labs(y = "", x = "Treatment", title = "(C) Immigration") +
+  scale_shape_discrete(name = "Source treatment") + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2),
+                     labels = NULL,
+                     limits = c(-2.5, 2.5)) +    
+  theme_light() +
+  theme(panel.grid.major.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        plot.margin = unit(c(0,0,0,0.2), "cm"),
+        plot.title = element_text(size = 8)) +
+  ggplot2::annotate(geom = "text", x = 0.8, y = 2.3, 
+                    label = annotation, size = 3,
+                    color = "#575757", size = 4, hjust = 0, vjust = 1)
+
+annotation <- paste0("Coeff. = ", round(summary(study1$topic4_h2a)$coefficients[2, 1], 3), 
+                     "; \np = ", round(summary(study1$topic4_h2a)$coefficients[2, 4], 3), sep="")
+
+study1_source_topic4 <- study1_source %>%
+  filter(variable == "Europe") %>%
+  ggplot(aes(x = as.factor(Treatment),
+             y = mean, 
+             shape = as.factor(Treatment))) +
+  geom_point(position = position_dodge(0.6), size = 1.5) + 
+  geom_errorbar(aes(ymin = conf_low, ymax = conf_high),
+                width = .2, size = 0.3,
+                position = position_dodge(0.6)) +
+  labs(y = "", x = "Treatment", title = "(D) European integration") +
+  scale_shape_discrete(name = "Source treatment") + 
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2),
+                     labels = NULL,
+                     limits = c(-2.5, 2.5)) +    
+  theme_light() +
+  theme(panel.grid.major.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        plot.margin = unit(c(0,0,0,0.15), "cm"),
+        plot.title = element_text(size = 8)) +
+  ggplot2::annotate(geom = "text", x = 0.8, y = 2.3, 
+                    label = annotation, size = 3,
+                    color = "#575757", size = 4, hjust = 0, vjust = 1)
+
+ggarrange(study1_source_topic1, 
+         study1_source_topic2,
+         study1_source_topic3, 
+         study1_source_topic4,
+         font.label = list(size = 12),
+         ncol = 4, nrow = 1, 
+         common.legend = TRUE,
+         legend = "bottom")
+
+
+```
+
+```{r study1-h3a-plots, fig.cap = "Interaction effects on belief\\label{fig:fig-h3a}", fig.height = 2.5, out.extra = '', fig.pos= "ht"}
+
+# Topic 1
+
+topic1_h3a_predict <- marg(study1$topic1_h3a, 
+                           var_interest = "topic1_content", 
+                           at = list("topic1_attitudes_average" = c(-5, 5),
+                                     "topic1_source" = c(0, 1)))
+
+topic1_h3a_predict_df <- data.frame(content = rep(c(0,1), 4),
+                                    attitude = rep(c(-5, -5, 5, 5), 2), 
+                                    source = c(0, 0, 0, 0, 1, 1, 1, 1),
+                                    topic1_belief_stand = NA, se = NA)
+
+for (i in 1:length(topic1_h3a_predict)) {
+  topic1_h3a_predict_df[i*2 - 1, "topic1_belief_stand"] <-
+    topic1_h3a_predict[[i]][["Margin"]][1]
+  topic1_h3a_predict_df[i*2 - 1, "se"] <-
+    topic1_h3a_predict[[i]][["Standard.Error"]][1]
+  topic1_h3a_predict_df[i*2, "topic1_belief_stand"] <-
+    topic1_h3a_predict[[i]][["Margin"]][2]
+  topic1_h3a_predict_df[i*2, "se"] <-
+    topic1_h3a_predict[[i]][["Standard.Error"]][2]
+}
+
+topic1_attitude_df <- data %>% 
+  filter(!is.na(topic1_belief_stand)) %>%
+  select(topic1_attitudes_average) %>%
+  mutate(y = 0)
+
+annotation <- paste0("Coeff. = ", round(summary(study1$topic1_h3a)$coefficients[8, 1], 3), 
+                     "; \np = ", round(summary(study1$topic1_h3a)$coefficients[8, 4], 3), sep="")
+
+study1_interaction_topic1 <- ggplot(topic1_h3a_predict_df, 
+       aes(x = attitude, 
+           y = topic1_belief_stand,
+           interaction(as.factor(content), as.factor(source)), 
+           linetype = as.factor(content),
+           shape = as.factor(source))) +
+  geom_point(size = 1.5) +
+  geom_path(size = 0.3) +
+  scale_linetype_discrete(labels = c("Left-wing congruent news report",
+                                     "Right-wing congruent news report")) +
+  scale_shape_discrete(labels = c("Fake (Neueste Nachrichten)",
+                                  "Real (Tagesschau)")) +
+  labs(y = "Belief", 
+       x = "Welfare attitude index",
+       linetype = "Content treatment",
+       shape = "Source treatment",
+       title = "(A) Welfare state") + 
+  scale_x_continuous(breaks = c(-5, 0, 5)) +
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2),
+                     labels = c(-2, -1, 0, 1, 2),
+                     limits = c(-2.5, 2.5)) +
+  theme_light() +
+  ggplot2::annotate(geom = "text", x = -3.5, y = 2.3, 
+                    label = annotation, size = 3,
+                    color = "#575757", size = 4, hjust = 0, vjust = 1) +
+  geom_rug(inherit.aes = FALSE, 
+           aes(x = topic1_attitudes_average, y = y),
+           data = topic1_attitude_df, 
+           sides="b", alpha = 0.2, size = 1, position = "jitter") +
+  theme(axis.title.x = element_text(size = 8),
+        plot.margin = unit(c(0,0,0,0.15), "cm"),
+        plot.title = element_text(size = 8)) +
+  guides(shape = FALSE)
+
+# Topic 2
+
+topic2_h3a_predict <- marg(study1$topic2_h3a, 
+                           var_interest = "topic2_content", 
+                           at = list("topic2_attitudes_average" = c(-5, 5),
+                                     "topic2_source" = c(0, 1)))
+
+topic2_h3a_predict_df <- data.frame(content = rep(c(0,1), 4),
+                                    attitude = rep(c(-5, -5, 5, 5), 2), 
+                                    source = c(0, 0, 0, 0, 1, 1, 1, 1),
+                                    topic2_belief_stand = NA, se = NA)
+
+for (i in 1:length(topic2_h3a_predict)) {
+  topic2_h3a_predict_df[i*2 - 1, "topic2_belief_stand"] <-
+    topic2_h3a_predict[[i]][["Margin"]][1]
+  topic2_h3a_predict_df[i*2 - 1, "se"] <-
+    topic2_h3a_predict[[i]][["Standard.Error"]][1]
+  topic2_h3a_predict_df[i*2, "topic2_belief_stand"] <-
+    topic2_h3a_predict[[i]][["Margin"]][2]
+  topic2_h3a_predict_df[i*2, "se"] <-
+    topic2_h3a_predict[[i]][["Standard.Error"]][2]
+}
+
+topic2_attitude_df <- data %>% 
+  filter(!is.na(topic2_belief_stand)) %>%
+  select(topic2_attitudes_average) %>%
+  mutate(y = 0)
+
+annotation <- paste0("Coeff. = ", round(summary(study1$topic2_h3a)$coefficients[8, 1], 3), 
+                     "; \np = ", round(summary(study1$topic2_h3a)$coefficients[8, 4], 3), sep="")
+
+study1_interaction_topic2 <- ggplot(topic2_h3a_predict_df, 
+       aes(x = attitude, 
+           y = topic2_belief_stand,
+           interaction(as.factor(content), as.factor(source)), 
+           linetype = as.factor(content),
+           shape = as.factor(source))) +
+  scale_linetype_discrete(labels = c("Left-wing congruent news report",
+                                     "Right-wing congruent news report")) +
+  scale_shape_discrete(labels = c("Fake (Neueste Nachrichten)",
+                                  "Real (Tagesschau)")) +
+  geom_point(size = 1.5) +
+  geom_path(size = 0.3) +
+  labs(y = "", 
+       x = "Security attitude index",
+       linetype = "Content treatment",
+       shape = "Source treatment",
+       title = "(B) Domestic Security") +  
+  scale_x_continuous(breaks = c(-5, 0, 5)) +
+    scale_y_continuous(breaks = c(-2, -1, 0, 1, 2),
+                     labels = NULL,
+                     limits = c(-2.5, 2.5)) +
+  theme_light() +
+  ggplot2::annotate(geom = "text", x = -3.5, y = 2.3, 
+                    label = annotation, size = 3,
+                    color = "#575757", size = 4, hjust = 0, vjust = 1) +
+  geom_rug(inherit.aes = FALSE, 
+           aes(x = topic2_attitudes_average, y = y),
+           data = topic2_attitude_df, 
+           sides="b", alpha = 0.2, size = 1, position = "jitter") +
+    theme(axis.title.x = element_text(size = 8),
+        plot.margin = unit(c(0,0,0,0.15), "cm"),
+        plot.title = element_text(size = 8)) +
+  guides(shape = FALSE)
+
+
+# Topic 3
+
+topic3_h3a_predict <- marg(study1$topic3_h3a, 
+                           var_interest = "topic3_content", 
+                           at = list("topic3_attitudes_average" = c(-5, 5),
+                                     "topic3_source" = c(0, 1)))
+
+topic3_h3a_predict_df <- data.frame(content = rep(c(0,1), 4),
+                                    attitude = rep(c(-5, -5, 5, 5), 2), 
+                                    source = c(0, 0, 0, 0, 1, 1, 1, 1),
+                                    topic3_belief_stand = NA, se = NA)
+
+for (i in 1:length(topic3_h3a_predict)) {
+  topic3_h3a_predict_df[i*2 - 1, "topic3_belief_stand"] <-
+    topic3_h3a_predict[[i]][["Margin"]][1]
+  topic3_h3a_predict_df[i*2 - 1, "se"] <-
+    topic3_h3a_predict[[i]][["Standard.Error"]][1]
+  topic3_h3a_predict_df[i*2, "topic3_belief_stand"] <-
+    topic3_h3a_predict[[i]][["Margin"]][2]
+  topic3_h3a_predict_df[i*2, "se"] <-
+    topic3_h3a_predict[[i]][["Standard.Error"]][2]
+}
+
+topic3_attitude_df <- data %>% 
+  filter(!is.na(topic3_belief_stand)) %>%
+  select(topic3_attitudes_average) %>%
+  mutate(y = 0)
+
+annotation <- paste0("Coeff. = ", round(summary(study1$topic3_h3a)$coefficients[8, 1], 3), 
+                     "; \np = ", round(summary(study1$topic3_h3a)$coefficients[8, 4], 3), sep="")
+
+study1_interaction_topic3 <- ggplot(topic3_h3a_predict_df, 
+       aes(x = attitude, 
+           y = topic3_belief_stand,
+           interaction(as.factor(content), as.factor(source)), 
+           linetype = as.factor(content),
+           shape = as.factor(source))) +
+  scale_linetype_discrete(labels = c("Left-wing congruent news report",
+                                     "Right-wing congruent news report")) +
+  scale_shape_discrete(labels = c("Fake (Neueste Nachrichten)",
+                                  "Real (Tagesschau)")) +
+  geom_point(size = 1.5) +
+  geom_path(size = 0.3) +
+  labs(y = "", 
+       x = "Immigration attitude index",
+       linetype = "Content treatment",
+       shape = "Source treatment",
+       title = "(C) Immigration") +  
+  scale_x_continuous(breaks = c(-5, 0, 5)) +
+    scale_y_continuous(breaks = c(-2, -1, 0, 1, 2),
+                     labels = NULL,
+                     limits = c(-2.5, 2.5)) +
+  theme_light() +
+  ggplot2::annotate(geom = "text", x = -3.5, y = 2.3, 
+                    label = annotation, size = 3,
+                    color = "#575757", size = 4, hjust = 0, vjust = 1) +
+  geom_rug(inherit.aes = FALSE, 
+           aes(x = topic3_attitudes_average, y = y),
+           data = topic3_attitude_df, 
+           sides="b", alpha = 0.2, size = 1, position = "jitter") +
+    theme(axis.title.x = element_text(size = 8),
+        plot.margin = unit(c(0,0,0,0.15), "cm"),
+        plot.title = element_text(size = 8)) +
+  guides(shape = FALSE)
+
+# Topic 4
+
+topic4_h3a_predict <- marg(study1$topic4_h3a, 
+                           var_interest = "topic4_content", 
+                           at = list("topic4_attitudes_average" = c(-5, 5),
+                                     "topic4_source" = c(0, 1)))
+
+topic4_h3a_predict_df <- data.frame(content = rep(c(0,1), 4),
+                                    attitude = rep(c(-5, -5, 5, 5), 2), 
+                                    source = c(0, 0, 0, 0, 1, 1, 1, 1),
+                                    topic4_belief_stand = NA, se = NA)
+
+for (i in 1:length(topic4_h3a_predict)) {
+  topic4_h3a_predict_df[i*2 - 1, "topic4_belief_stand"] <-
+    topic4_h3a_predict[[i]][["Margin"]][1]
+  topic4_h3a_predict_df[i*2 - 1, "se"] <-
+    topic4_h3a_predict[[i]][["Standard.Error"]][1]
+  topic4_h3a_predict_df[i*2, "topic4_belief_stand"] <-
+    topic4_h3a_predict[[i]][["Margin"]][2]
+  topic4_h3a_predict_df[i*2, "se"] <-
+    topic4_h3a_predict[[i]][["Standard.Error"]][2]
+}
+
+topic4_attitude_df <- data %>% 
+  filter(!is.na(topic4_belief_stand)) %>%
+  select(topic4_attitudes_average) %>%
+  mutate(y = 0)
+
+annotation <- paste0("Coeff. = ", round(summary(study1$topic4_h3a)$coefficients[8, 1], 3), 
+                     "; \np = ", round(summary(study1$topic4_h3a)$coefficients[8, 4], 3), sep="")
+
+study1_interaction_topic4 <- ggplot(topic4_h3a_predict_df, 
+       aes(x = attitude, 
+           y = topic4_belief_stand,
+           interaction(as.factor(content), as.factor(source)), 
+           linetype = as.factor(content),
+           shape = as.factor(source))) +
+  scale_linetype_discrete(labels = c("Left-wing congruent news report",
+                                     "Right-wing congruent news report")) +
+  scale_shape_discrete(labels = c("Fake (Neueste Nachrichten)",
+                                  "Real (Tagesschau)")) +
+  geom_point(size = 1.5) +
+  geom_path(size = 0.3) +
+  labs(y = "", 
+       x = "Europe attitude index",
+       linetype = "Content treatment",
+       shape = "Source treatment",
+       title = "(D) European integration") +  
+  scale_x_continuous(breaks = c(-5, 0, 5)) +
+    scale_y_continuous(breaks = c(-2, -1, 0, 1, 2),
+                     labels = NULL,
+                     limits = c(-2.5, 2.5)) +
+  theme_light() +
+  ggplot2::annotate(geom = "text", x = -3.5, y = 2.3, 
+                    label = annotation, size = 3,
+                    color = "#575757", size = 4, hjust = 0, vjust = 1) +
+  geom_rug(inherit.aes = FALSE, 
+           aes(x = topic4_attitudes_average, y = y),
+           data = topic4_attitude_df, 
+           sides="b", alpha = 0.2, size = 1, position = "jitter") +
+    theme(axis.title.x = element_text(size = 8),
+        plot.margin = unit(c(0,0,0,0.15), "cm"),
+        plot.title = element_text(size = 8)) +
+  guides(shape = FALSE)
+
+# Get legend
+
+source_legend_plot <- ggplot(topic4_h3a_predict_df, 
+       aes(x = attitude, 
+           y = topic4_belief_stand,
+           interaction(as.factor(content), as.factor(source)), 
+           linetype = as.factor(content),
+           shape = as.factor(source))) +
+  scale_linetype_discrete(labels = c("Left-wing congruent news report",
+                                     "Right-wing congruent news report")) +
+  scale_shape_discrete(labels = c("Fake (Neueste Nachrichten)",
+                                  "Real (Tagesschau)")) +
+  geom_point(size = 1.5) +
+  geom_path(size = 0.3) +
+  labs(y = "", 
+       x = "Europe attitude index",
+       linetype = "Content treatment",
+       shape = "Source treatment",
+       title = "(D) European integration") +  
+  theme_light() +
+  theme(legend.position="bottom") +
+  guides(linetype = FALSE)
+
+congruence_legend_plot <- ggplot(topic4_h3a_predict_df, 
+       aes(x = attitude, 
+           y = topic4_belief_stand,
+           interaction(as.factor(content), as.factor(source)), 
+           linetype = as.factor(content),
+           shape = as.factor(source))) +
+  scale_linetype_discrete(labels = c("Left-wing congruent news report",
+                                     "Right-wing congruent news report")) +
+  scale_shape_discrete(labels = c("Fake (Neueste Nachrichten)",
+                                  "Real (Tagesschau)")) +
+  geom_point(size = 1.5) +
+  geom_path(size = 0.3) +
+  labs(y = "", 
+       x = "Europe attitude index",
+       linetype = "Content treatment",
+       shape = "Source treatment",
+       title = "(D) European integration") +  
+  theme_light() +
+  theme(legend.position="bottom") +
+  guides(shape = FALSE)
+
+source_legend <- get_legend(source_legend_plot)
+congruence_legend <- get_legend(congruence_legend_plot)
+
+grid.arrange(arrangeGrob(study1_interaction_topic1 + theme(legend.position="none"),
+                         study1_interaction_topic2 + theme(legend.position="none"),
+                         study1_interaction_topic3 + theme(legend.position="none"),
+                         study1_interaction_topic4 + theme(legend.position="none"), 
+                         nrow = 1),
+             congruence_legend,
+             source_legend,
+             nrow = 3, heights = c(10, 2, 1.5))
+
+```
+
+
+```{r heterogeneity-congruence-plots, fig.cap = "Congruence effect heterogeneity  \\label{fig:fig-het-cong}", fig.height = 4, out.extra = '', fig.pos= "ht"}
+
+# Topic 1: Welfare state
+
+plots_het_topic1_congruence <- forest_data_plots(
+  W = "topic1_congruence", 
+  Y = "topic1_belief",
+  ylim_low = -1, ylim_high = 2.5,
+  varlabels = FALSE
+  )
+
+plots_het_topic1_congruence_all <- ggarrange(
+  plotlist = plots_het_topic1_congruence,
+  common.legend = TRUE,
+  legend = "bottom", ncol = 2, nrow = 1) %>%
+  annotate_figure(., top = text_grob("(A) Welfare state", size = 10))
+
+# Topic 2: Domestic security
+
+plots_het_topic2_congruence <- forest_data_plots(
+  W = "topic2_congruence",
+  Y = "topic2_belief",
+  ylim_low = -1, ylim_high = 2.5,
+  varlabels = FALSE
+  )
+
+plots_het_topic2_congruence_all <- ggarrange(
+  plotlist = plots_het_topic2_congruence,
+  common.legend = TRUE,
+  legend = "bottom", ncol = 2, nrow = 1) %>%
+  annotate_figure(., top = text_grob("(B) Domestic Security", size = 10))
+
+# Topic 3: Immigration
+
+plots_het_topic3_congruence <- forest_data_plots(
+  W = "topic3_congruence",
+  Y = "topic3_belief",
+  ylim_low = -1, ylim_high = 2.5,
+  varlabels = TRUE
+  )
+
+plots_het_topic3_congruence_all <- ggarrange(
+  plotlist = plots_het_topic3_congruence,
+  common.legend = TRUE,
+  legend = "bottom", ncol = 2, nrow = 1) %>%
+  annotate_figure(., top = text_grob("(C) Immigration", size = 10))
+
+# Topic 4: Europe
+
+plots_het_topic4_congruence <- forest_data_plots(
+  W = "topic4_congruence",
+  Y = "topic4_belief",
+  ylim_low = -1, ylim_high = 2.5,
+  varlabels = TRUE
+  )
+
+plots_het_topic4_congruence_all <- ggarrange(
+  plotlist = plots_het_topic4_congruence,
+  common.legend = TRUE,
+  legend = "bottom", ncol = 2, nrow = 1) %>%
+  annotate_figure(., top = text_grob("(D) European Integration", size = 10))
+
+# Combine all plots
+
+ggarrange(
+  plots_het_topic1_congruence_all,
+  plots_het_topic2_congruence_all,
+  plots_het_topic3_congruence_all,
+  plots_het_topic4_congruence_all,
+  common.legend = FALSE,
+  legend = "bottom", nrow = 2, ncol = 2)
+
+```
+
+
+```{r heterogeneity-source-plots, fig.cap = "Source effect heterogeneity  \\label{fig:fig-het-source}", fig.height = 4, out.extra = '', fig.pos= "ht"}
+
+# Topic 1: Welfare state
+
+plots_het_topic1_source <- forest_data_plots(
+  W = "topic1_source", 
+  Y = "topic1_belief",
+  ylim_low = -1, ylim_high = 1.5,
+  varlabels = FALSE
+  )
+
+plots_het_topic1_source_all <- ggarrange(
+  plotlist = plots_het_topic1_source,
+  common.legend = TRUE,
+  legend = "bottom", ncol = 2, nrow = 1) %>%
+  annotate_figure(., top = text_grob("(A) Welfare state", size = 10))
+
+# Topic 2: Domestic security
+
+plots_het_topic2_source <- forest_data_plots(
+  W = "topic2_source",
+  Y = "topic2_belief",
+  ylim_low = -1, ylim_high = 1.5,
+  varlabels = FALSE
+  )
+
+plots_het_topic2_source_all <- ggarrange(
+  plotlist = plots_het_topic2_source,
+  common.legend = TRUE,
+  legend = "bottom", ncol = 2, nrow = 1) %>%
+  annotate_figure(., top = text_grob("(B) Domestic Security", size = 10))
+
+# Topic 3: Immigration
+
+plots_het_topic3_source <- forest_data_plots(
+  W = "topic3_source",
+  Y = "topic3_belief",
+  ylim_low = -1, ylim_high = 1.5,
+  varlabels = TRUE
+  )
+
+plots_het_topic3_source_all <- ggarrange(
+  plotlist = plots_het_topic3_source,
+  common.legend = TRUE,
+  legend = "bottom", ncol = 2, nrow = 1) %>%
+  annotate_figure(., top = text_grob("(C) Immigration", size = 10))
+
+# Topic 4: Europe
+
+plots_het_topic4_source <- forest_data_plots(
+  W = "topic4_source",
+  Y = "topic4_belief",
+  ylim_low = -1, ylim_high = 1.5,
+  varlabels = TRUE
+  )
+
+plots_het_topic4_source_all <- ggarrange(
+  plotlist = plots_het_topic4_source,
+  common.legend = TRUE,
+  legend = "bottom", ncol = 2, nrow = 1) %>%
+  annotate_figure(., top = text_grob("(D) European Integration", size = 10))
+
+# Combine all plots
+
+ggarrange(
+  plots_het_topic1_source_all,
+  plots_het_topic2_source_all,
+  plots_het_topic3_source_all,
+  plots_het_topic4_source_all,
+  common.legend = FALSE,
+  legend = "bottom", nrow = 2, ncol = 2)
+
+```
+
+```{r study1-salience-plot, echo = FALSE, fig.cap = "Trends in Google searches\\label{fig:fig-study1-salience}", fig.height = 4, out.extra=''}
+
+topics_trends <- read.csv("data/topics_trends.csv", stringsAsFactors = FALSE)
+
+# Aggegregate
+
+topics_trends %<>% 
+  mutate(date = as.Date(date)) %>%
+  mutate(week = week(date),
+         week_start = floor_date(date, "weeks", week_start = 1),
+         week_end = ceiling_date(date, "weeks", week_start = 1)) %>% 
+  group_by(week_start) %>% 
+  summarise(date = first(date),
+            week_end = first(week_end),
+            topic1_sum = sum(topic1_sum),
+            topic2_sum = sum(topic2_sum),
+            topic3_sum = sum(topic3_sum),
+            topic4_sum = sum(topic4_sum)) %>%
+  pivot_longer(cols = c(topic1_sum, topic2_sum, topic3_sum, topic4_sum), 
+               names_to = "topic", values_to = "prevalence")
+
+topics_trends %>% 
+  ggplot(aes(x = date,
+             y = prevalence,
+             linetype = as.factor(topic))) +
+  geom_rect(xmin = as.Date("2017-09-18", "%Y-%m-%d"),
+            xmax = as.Date("2017-09-24", "%Y-%m-%d"),
+            ymin = -5, ymax = 820, alpha = 0.05, fill = "grey80") +
+  geom_line() +
+  labs(y = "Relative search frequency",
+       x = "Weekly averages") +
+  scale_linetype_discrete(name = "Search-related topic",
+                          labels = c("Welfare state", "Domestic Security",
+                                     "Immigration", "European integration")) +
+  scale_x_date(date_breaks = "1 week", 
+               date_labels = "%Y-%m-%d") +
+  scale_y_continuous(breaks = NULL, ) +
+  theme_light() +
+  theme(legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust=1, size = 7),
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    panel.grid.minor.x = element_blank()) +
+  annotate("text", x = as.Date("2017-07-25", "%Y-%m-%d"), y = 730, label = "Immigration", size = 3) + 
+  annotate("text", x = as.Date("2017-07-25", "%Y-%m-%d"), y = 480, label = "Welfare State", size = 3) +
+  annotate("text", x = as.Date("2017-07-27", "%Y-%m-%d"), y = 150, label = "European integration", size = 3) + 
+  annotate("text", x = as.Date("2017-07-30", "%Y-%m-%d"), y = -5, label = "Domestic Security", size = 3)
+
+```
+
+\clearpage
+
+# Tables
+
+\setstretch{1}
+
+| Topic | Left-wing report | Right-wing report  |
+|------|-------------|-------------|
+| Welfare state | Hartz IV benefit cuts: Sanctions push unemployed into ill-paid jobs | Hartz IV benefit cuts: Sanctions speed up entry into regular employment |
+| Domestic security | Europe-wide comparison: Arrest of terrorist suspects does not decrease risk of terrorism  | Europe-wide comparison: Fewer terrorist attacks in countries with strict arrest of terrorist suspects |
+| Immigration | Craft traineeships: Completion rates as high for refugees as for natives | Craft traineeships: Nine out of ten refugees cancel their traineeship |
+| European integration | EU programme to reduce regulations shows effects| EU programme to reduce regulations unsuccessful, but costly |
+
+Table: Content treatment conditions\label{tab:content-treatment-table}
+
+\setstretch{2}
